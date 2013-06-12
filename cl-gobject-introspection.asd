@@ -19,7 +19,9 @@
                (:file "src/typelib")
                (:file "src/types")
                (:file "src/baseinfo")
-               (:file "src/repository")))
+               (:file "src/repository")
+               (:file "src/function")
+               (:file "src/ffi")))
 
 (defmethod perform ((o test-op) (c (eql (find-system 'cl-gobject-introspection))))
   (load-system '#:cl-gobject-introspection) 

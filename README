@@ -1,1 +1,7 @@
 A bridge between Common Lisp and GObject.
+
+License: BSD
+
+Status: Alpha
+
+This version only gets info from GObjectIntrospection

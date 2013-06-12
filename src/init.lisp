@@ -91,7 +91,7 @@
      (prog1
 	 (progn ,@body)
        (unless (cffi:null-pointer-p (cffi:mem-ref ,err :pointer))
-	 (error "~A" (cffi:foreign-slot-value (cffi:mem-ref ,err :pointer) 'g-error 'message))))))
+	 (error "~A" (cffi:foreign-slot-value (cffi:mem-ref ,err :pointer) '(:struct g-error) 'message))))))
 
 (defmacro define-collection-getter (name get-count get-item)
   (let ((def-get-count (unless (listp get-count)

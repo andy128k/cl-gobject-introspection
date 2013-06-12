@@ -13,6 +13,8 @@
 
 (defmethod cffi:translate-to-foreign (info (type repository-type))
   (slot-value info 'ptr))
+(defmethod cffi:translate-to-foreign ((info null) (type repository-type))
+  (cffi:null-pointer))
 (defmethod cffi:translate-from-foreign (pointer (type repository-type))
   (make-repository :ptr pointer))
 
@@ -316,20 +318,20 @@ void gi_cclosure_marshal_generic (GClosure       *closure,
   (type-info info-ffi))
 (export 'type-info-get-array-type)
 
-(define-collection-getter type-info-get-error-domains
-    g-type-info-get-n-error-domains g-type-info-get-error-domain)
+;(define-collection-getter type-info-get-error-domains
+;    g-type-info-get-n-error-domains g-type-info-get-error-domain)
 
 ;;;
 ;;; error-domain-info
 ;;;
 
-(cffi:defcfun (error-domain-info-get-quark "g_error_domain_info_get_quark") :string
-  (error-domain-info info-ffi))
-(export 'error-domain-info-get-quark)
+;; (cffi:defcfun (error-domain-info-get-quark "g_error_domain_info_get_quark") :string
+;;   (error-domain-info info-ffi))
+;; (export 'error-domain-info-get-quark)
 
-(cffi:defcfun (error-domain-info-get-codes "g_error_domain_info_get_codes") info-ffi
-  (error-domain-info info-ffi))
-(export 'error-domain-info-get-codes)
+;; (cffi:defcfun (error-domain-info-get-codes "g_error_domain_info_get_codes") info-ffi
+;;   (error-domain-info info-ffi))
+;; (export 'error-domain-info-get-codes)
 
 ;;;
 ;;; value-info
@@ -647,10 +649,10 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 (progn 
   (cffi:defcfun g-constant-info-get-value :int
     (constant-info info-ffi)
-    (value argument))
+    (value (:pointer (:union argument))))
   
   (defun constant-info-get-value (constant-info)
-    (cffi:with-foreign-object (value 'argument)
+    (cffi:with-foreign-object (value '(:pointer (:union argument)))
       (let ((length (g-constant-info-get-value constant-info value)))
 	(argument->lisp-value value length (constant-info-get-type constant-info)))))
   
