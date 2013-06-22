@@ -13,7 +13,11 @@
   >giarg >value check description)
 
 (defun pointer->giarg (giarg value)
-  (setf (cffi:foreign-slot-value giarg '(:union argument) 'v-pointer) value))
+  (typecase value
+    (function (pointer->giarg giarg (funcall value :this)))
+    (t (setf 
+        (cffi:foreign-slot-value giarg '(:union argument) 'v-pointer) 
+        value))))
 
 (defun giarg->pointer (giarg)
   (cffi:foreign-slot-value giarg '(:union argument) 'v-pointer))
@@ -44,13 +48,21 @@
                   (:time-t 'v-long)
                   (:gtype 'v-ulong)
                   (:utf8 'v-string)
+                  (:interface 'v-int)
                   (:filename 'v-string)
                   (t 'v-pointer)))
          (value->giarg
            (if pointer?
-               #'pointer->giarg
+               (case tag
+                 ((:utf8 :filename)
+                  (lambda (giarg value)
+                    (setf (cffi:foreign-slot-value 
+                           giarg '(:union argument) 'v-string) 
+                          value)))
+                 (t #'pointer->giarg))
                (case tag
                  (:void (lambda (giarg value)
+                          (declare (ignore value))
                           (setf (cffi:foreign-slot-value 
                                  giarg '(:union argument) 'v-pointer) 
                                 (cffi:null-pointer))))
@@ -60,15 +72,20 @@
                             value))))))
          (giarg->value
            (if pointer?
-               #'giarg->pointer
                (case tag
-                 (:void (lambda (giarg) nil))
+                 ((:utf8 :filename)
+                   (lambda (giarg)
+                     (cffi:foreign-slot-value 
+                      giarg '(:union argument) 'v-string)))
+                 (t #'giarg->pointer))
+               (case tag
+                 (:void (lambda (giarg) (declare (ignore giarg)) nil))
                  (t (lambda (giarg)
                       (cffi:foreign-slot-value 
                        giarg '(:union argument) field))))))
          (check-value
-          (lambda (value) t))
-         (description (format nil "~a" type)))
+          (lambda (value) (declare (ignore value)) t))
+         (description (format nil "~a" tag)))
     (make-translator value->giarg giarg->value check-value description)))
 
 
@@ -112,27 +129,34 @@
   (ret :pointer) (g-error :pointer))
 
 (defun make-out (res-trans giarg-res out-translators giargs-out)
-  (values-list 
-   (cons 
-    (funcall (translator->value res-trans) giarg-res)
-    (loop
-       :for trans :in out-translators
-       :for i :from 0
-       :collect (funcall (translator->value trans)
-                         (cffi:mem-aptr giargs-out '(:union argument) i))))))
+  (cons 
+   (funcall (translator->value res-trans) giarg-res)
+   (iter
+     (for trans in out-translators)
+     (for i from 0)
+     (collect (funcall (translator->value trans)
+                       (cffi:mem-aptr giargs-out '(:union argument) i))))))
+
+(defun check-args (args in-trans name)
+  (assert (= (length in-trans) (length args))
+          (args) 
+          "Should be ~a arguments in function ~a" 
+          (length in-trans) name))
 
 (defun build-function (info)
   (multiple-value-bind (in-trans out-trans) (get-args info)
     (let ((name (info-get-name info)))
       (lambda (&rest args)
-        ; (check-args args in-trans name)
-        (let ((giargs-in (giargs in-trans args))
-              (giargs-out (giargs out-trans))
-              (res-trans (return-giarg info))
-              (giarg-res (cffi:foreign-alloc '(:union argument))))
-          (with-gerror g-error
-            (g-function-info-invoke info
-                             giargs-in (length in-trans) 
-                             giargs-out (length out-trans) 
-                             giarg-res g-error)
-            (make-out res-trans giarg-res out-trans giargs-out)))))))
+        (check-args args in-trans name)
+        (values-list 
+         (let ((giargs-in (giargs in-trans args))
+               (giargs-out (giargs out-trans))
+               (res-trans (return-giarg info))
+               (giarg-res (cffi:foreign-alloc '(:union argument))))
+           ;(format t "DEBUG ~a ~a ~a~%" name args in-trans)
+           (with-gerror g-error
+             (g-function-info-invoke info
+                                     giargs-in (length in-trans) 
+                                     giargs-out (length out-trans) 
+                                     giarg-res g-error)
+             (make-out res-trans giarg-res out-trans giargs-out))))))))

@@ -9,9 +9,9 @@
 
 (defsystem cl-gobject-introspection
   :description "Binding to GObjectIntrospection"
-  :version "0.1"
-  :author "Andrey Kutejko <andy128k@gmail.com>"
-  :licence "LLGPL"
+  :version "0.2"
+  :author "Andrey Kutejko <andy128k@gmail.com>, Roman Klochkov <kalimehtar@mail.ru>"
+  :licence "BSD"
   :depends-on (:cffi :iterate)
   :serial t
   :components ((:file "src/package")
@@ -21,6 +21,7 @@
                (:file "src/baseinfo")
                (:file "src/repository")
                (:file "src/function")
+               (:file "src/object")
                (:file "src/ffi")))
 
 (defmethod perform ((o test-op) (c (eql (find-system 'cl-gobject-introspection))))

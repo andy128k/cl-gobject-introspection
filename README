@@ -4,4 +4,7 @@ License: BSD
 
 Status: Alpha
 
-This version only gets info from GObjectIntrospection
+Fully dynamic bindog to GObject. On-demand calling for classes, functions and
+so on.
+
+See example of usage in test/hello.lisp

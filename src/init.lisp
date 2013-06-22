@@ -72,7 +72,8 @@
   (prog1
       (iter (for c initially pointer then (g-slist-next c))
             (until (cffi:null-pointer-p c))
-	    (collect (cffi:convert-from-foreign (cffi:foreign-slot-value c 'g-slist 'data) :string)))
+	    (collect (cffi:convert-from-foreign 
+                      (cffi:foreign-slot-value c 'g-slist 'data) :string)))
     (g-slist-free pointer)))
 
 ;;
@@ -108,3 +109,18 @@
 		 (collect (,get-item info i)))))
        (export ',name))))
 
+
+(cffi:defbitfield connect-flags
+  (:none 0)
+  :after
+  :swapped)
+
+(cffi:defcfun g-signal-connect-data :ulong
+  (instance :pointer)
+  (detailed-signal :string)
+  (c-handler :pointer)
+  (data :pointer)
+  (destroy-data :pointer)
+  (connect-flags connect-flags))
+
+#+sbcl (sb-ext::set-floating-point-modes :traps nil)
