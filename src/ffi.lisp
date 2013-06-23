@@ -4,7 +4,8 @@
 (defun build-interface (info args)
   (etypecase info
     (function-info (apply (build-function info) args))
-    (object-info (apply (build-object info) args))))
+    (object-info (apply (build-object info) args))
+    (enum-info (apply (build-enum info) args))))
 
 
 

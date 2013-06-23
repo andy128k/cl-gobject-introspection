@@ -22,6 +22,7 @@
                (:file "src/repository")
                (:file "src/function")
                (:file "src/object")
+               (:file "src/enum")
                (:file "src/ffi")))
 
 (defmethod perform ((o test-op) (c (eql (find-system 'cl-gobject-introspection))))

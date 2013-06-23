@@ -467,6 +467,10 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 (define-collection-getter enum-info-get-values
     g-enum-info-get-n-values g-enum-info-get-value)
 
+(define-collection-getter enum-info-get-methods
+    g-enum-info-get-n-methods g-enum-info-get-method)
+
+
 (cffi:defcfun (enum-info-get-storage-type "g_enum_info_get_storage_type") info-ffi
   (enum-info info-ffi))
 (export 'enum-info-get-storage-type)
