@@ -25,6 +25,7 @@
   (v-size :uint)
   (v-string :string)
   (v-pointer :pointer))
+(export 'argument)
 
 (defun argument->lisp-value (argument length type)
   (declare (ignore length))
@@ -89,3 +90,7 @@
   :type
   :unresolved)
 
+(cffi:defctype gtype :ulong)
+
+(defun gtype (obj) 
+  (cffi:mem-ref (cffi:mem-ref obj :pointer) 'gtype))

@@ -87,7 +87,7 @@
           (lambda (value) (declare (ignore value)) t))
          (description (format nil "~a" tag)))
     (make-translator value->giarg giarg->value check-value description)))
-
+(export 'build-translator)
 
 
 (defun get-args (info)
@@ -118,6 +118,7 @@
                       (cffi:mem-aptr ptr '(:union argument) i)
                       val)))
     ptr))
+(export 'giargs)
 
 (defun return-giarg (info)
   (build-translator (callable-info-get-return-type info)))
@@ -136,6 +137,7 @@
      (for i from 0)
      (collect (funcall (translator->value trans)
                        (cffi:mem-aptr giargs-out '(:union argument) i))))))
+(export 'make-out)
 
 (defun check-args (args in-trans name)
   (assert (= (length in-trans) (length args))

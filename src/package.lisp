@@ -4,7 +4,13 @@
 
 (defpackage #:gir
   (:use #:common-lisp #:iterate)
+  (:shadow #:get-properties)
   (:export 
+   #:argument
+   #:enum-info-get-methods
+   #:make-out
+   #:giargs
+   #:build-translator
    #:base-info
    #:type-info
    #:callable-info

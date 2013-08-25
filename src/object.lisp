@@ -8,20 +8,84 @@
 (defun find-ffi-method (info name)
   (and info
        (or (object-info-find-method info name)
+           (loop 
+              :for i :in (object-info-get-interfaces info)
+              :for j = (interface-info-find-method i name)
+              :when j :return j)
            (find-ffi-method (object-info-get-parent info) name))))
 
-(defun name-this? (name)
-  (eq name :this))
+(defun closures (info)
+  (let* ((call (lambda (name args)
+                 (let ((function-info (find-ffi-method info (c-name name))))
+                   (if function-info
+                       (apply (build-function function-info) args)
+                       (error "Bad FFI method name ~a" name)))))
+         (fields-dict
+          (loop :for i :in (g-object-info-get-n-fields info)
+             :collect
+             (let ((field-info (g-object-info-get-field info i)))
+               (cons (info-get-name field-info) field-info))))
+         (find-field (lambda (name)
+                       (cdr (or (assoc (c-name name) fields-dict)
+                                (error "Bad FFI field name ~a" name)))))
+         (closure (lambda (this)
+                    (let ((signals (list nil)))
+                      (lambda (name &rest args)
+                        (case name
+                          (:this this)
+                          (:signals signals)
+                          (:field
+                           (destructuring-bind (name) args
+                             (gir.field:get this (funcall find-field name))))
+                          (:set-field!
+                           (destructuring-bind (name value) args
+                             (gir.field:set this 
+                                            (funcall find-field name) 
+                                            value)))
+                          (:set-properties!
+                           (set-properties! this args))
+                          (:properties
+                           (get-properties this args))
+                          (t (funcall call name (cons this args)))))))))
+    (values call closure)))
+
+(defun get-properties (ptr &rest args))
+(defun set-properties! (ptr &rest args))
+
+(cffi:defcfun g-object-ref-sink :pointer (obj :pointer))
+(cffi:defcfun g-object-unref :void (obj :pointer))
+
+(defun object-ref-sink (obj)
+  (let ((a (cffi:pointer-address obj)))
+    (tg:finalize obj (lambda () (g-object-unref (cffi:make-pointer a)))))
+  (g-object-ref-sink obj))
 
 (defun build-object (info)
-  (flet ((call (name args)
-              (let ((function-info (find-ffi-method info (c-name name))))
-                (if function-info
-                    (apply (build-function function-info) args)
-                    (error "Should be FFI method name: ~a" name)))))
+  (multiple-value-bind (call closure) (closures info)
     (lambda (name &rest args)
-      (let ((this (call name args)))
-        (lambda (name &rest args)
-          (if (name-this? name)
-              this
-              (call name (cons this args))))))))
+      (let ((this (if (cffi:pointerp name) name 
+                      (object-ref-sink (funcall call name args)))))
+        (funcall closure this)))))
+
+(defun build-object-ptr (info ptr)
+  (multiple-value-bind (call closure) (closures info)
+    (declare (ignore call))
+    (funcall closure ptr)))
+
+(defun gobject (gtype ptr)
+  (let ((info (repository-find-by-gtype nil gtype)))
+    (if (and info (eq (g-base-info-get-type info) 'object))
+        (build-object-ptr info ptr)
+        (error "gtype ~a not found in GI" gtype))))
+
+(cffi:define-foreign-type pobject ()
+  ()
+  (:documentation "pointer to GObject")
+  (:actual-type :pointer)
+  (:simple-parser pobject))
+
+(defmethod cffi:translate-to-foreign (object (type pobject))
+  (call object :this))
+
+(defmethod cffi:translate-from-foreign (pointer (type pobject))
+  (gobject (gtype pointer) pointer))

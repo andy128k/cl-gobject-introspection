@@ -1,13 +1,12 @@
 (in-package :gir)
 
-
 (defun build-interface (info args)
   (etypecase info
     (function-info (apply (build-function info) args))
     (object-info (apply (build-object info) args))
-    (enum-info (apply (build-enum info) args))))
-
-
+    (struct-info (apply (build-struct info) args))
+    (enum-info (apply (build-enum info) args))
+    (constant-info (constant-info-get-value info))))
 
 (defun ffi (namespace &optional (version (cffi:null-pointer)))
   (repository-require nil namespace version)
