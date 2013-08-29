@@ -12,7 +12,7 @@
   :version "0.2"
   :author "Andrey Kutejko <andy128k@gmail.com>, Roman Klochkov <kalimehtar@mail.ru>"
   :licence "BSD"
-  :depends-on (:cffi :iterate)
+  :depends-on (:cffi :iterate :trivial-garbage)
   :serial t
   :components ((:file "src/package")
                (:file "src/init")
