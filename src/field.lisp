@@ -16,7 +16,7 @@
     (unless (g-field-info-get-field field ptr giarg-res)
       (error "FFI get field failed: ~a" (gir:info-get-name field)))
     (gir:make-out (gir:build-translator (g-field-info-get-type field))
-                  giarg-res)))
+                  giarg-res nil nil)))
 
 (defun set (ptr field value)
   (let* ((translators (list (gir:build-translator 

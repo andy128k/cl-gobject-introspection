@@ -9,8 +9,8 @@
 
 (defstruct 
     (translator 
-      (:constructor make-translator (>giarg >value check description)))
-  >giarg >value check description)
+      (:constructor make-translator (>giarg >value check description free)))
+  >giarg >value check description free)
 
 (defun pointer->giarg (giarg value)
   (typecase value
@@ -21,6 +21,9 @@
 
 (defun giarg->pointer (giarg)
   (cffi:foreign-slot-value giarg '(:union argument) 'v-pointer))
+
+(defun dont-free (giarg)
+  (declare (ignore giarg)))
 
 (defun build-translator (type)
   (let* ((tag (type-info-get-tag type))
@@ -57,8 +60,8 @@
                  ((:utf8 :filename)
                   (lambda (giarg value)
                     (setf (cffi:foreign-slot-value 
-                           giarg '(:union argument) 'v-string) 
-                          value)))
+                           giarg '(:union argument) 'v-string)
+                          (cffi:foreign-string-alloc value))))
                  (t #'pointer->giarg))
                (case tag
                  (:void (lambda (giarg value)
@@ -75,18 +78,26 @@
                (case tag
                  ((:utf8 :filename)
                    (lambda (giarg)
-                     (cffi:foreign-slot-value 
-                      giarg '(:union argument) 'v-string)))
+                     (cffi:foreign-string-to-lisp 
+                      (cffi:foreign-slot-value 
+                       giarg '(:union argument) 'v-string))))
                  (t #'giarg->pointer))
                (case tag
                  (:void (lambda (giarg) (declare (ignore giarg)) nil))
                  (t (lambda (giarg)
                       (cffi:foreign-slot-value 
                        giarg '(:union argument) field))))))
+         (giarg-free
+          (if (and pointer? (member tag '(:utf8 :filename)))
+              (lambda (giarg) (cffi:foreign-free 
+                               (cffi:foreign-slot-value 
+                                giarg '(:union argument) 'v-string)))
+              #'dont-free))
          (check-value
           (lambda (value) (declare (ignore value)) t))
          (description (format nil "~a" tag)))
-    (make-translator value->giarg giarg->value check-value description)))
+    (make-translator value->giarg giarg->value 
+                     check-value description giarg-free)))
 (export 'build-translator)
 
 
@@ -95,7 +106,8 @@
   (let ((n-args (g-callable-info-get-n-args info))
         (in (when (method? (function-info-get-flags info))
               (list (make-translator #'pointer->giarg #'giarg->pointer 
-                                     #'cffi:pointerp "instance pointer"))))
+                                     #'cffi:pointerp "instance pointer" 
+                                     #'dont-free))))
         out)
     (dotimes (i n-args)
       (let* ((arg (g-callable-info-get-arg info i))
@@ -145,6 +157,15 @@
           "Should be ~a arguments in function ~a" 
           (length in-trans) name))
 
+(defun clear-giarg (giarg trans)
+  (funcall (translator-free trans) giarg))
+
+(defun clear-giargs (giargs translators)
+  (iter
+    (for trans in translators)
+    (for i from 0)
+    (clear-giarg (cffi:mem-aptr giargs '(:union argument) i) trans)))
+
 (defun build-function (info)
   (multiple-value-bind (in-trans out-trans) (get-args info)
     (let ((name (info-get-name info)))
@@ -155,10 +176,16 @@
                (giargs-out (giargs out-trans))
                (res-trans (return-giarg info))
                (giarg-res (cffi:foreign-alloc '(:union argument))))
-           ;(format t "DEBUG ~a ~a ~a~%" name args in-trans)
-           (with-gerror g-error
-             (g-function-info-invoke info
-                                     giargs-in (length in-trans) 
-                                     giargs-out (length out-trans) 
-                                     giarg-res g-error)
-             (make-out res-trans giarg-res out-trans giargs-out))))))))
+           ;(format t "DEBUG ~a ~a ~a~%" name args 
+           ;        (make-out res-trans giarg-res in-trans giargs-in))
+           (unwind-protect
+                (with-gerror g-error
+                  (g-function-info-invoke info
+                                          giargs-in (length in-trans) 
+                                          giargs-out (length out-trans) 
+                                          giarg-res g-error)
+                  (make-out res-trans giarg-res out-trans giargs-out))
+;             (progn
+               (clear-giargs giargs-in in-trans))))))))
+               ; (clear-giargs giargs-out out-trans)
+               ; (clear-giarg giarg-res res-trans)))))))))

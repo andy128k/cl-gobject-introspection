@@ -23,7 +23,7 @@
   (v-ulong :ulong)
   (v-ssize :int)
   (v-size :uint)
-  (v-string :string)
+  (v-string :pointer) ;; if :string, it frees pointer after setting it
   (v-pointer :pointer))
 (export 'argument)
 

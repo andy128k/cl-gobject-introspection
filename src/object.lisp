@@ -21,7 +21,7 @@
                        (apply (build-function function-info) args)
                        (error "Bad FFI method name ~a" name)))))
          (fields-dict
-          (loop :for i :in (g-object-info-get-n-fields info)
+          (loop :for i :below (g-object-info-get-n-fields info)
              :collect
              (let ((field-info (g-object-info-get-field info i)))
                (cons (info-get-name field-info) field-info))))
@@ -49,16 +49,20 @@
                           (t (funcall call name (cons this args)))))))))
     (values call closure)))
 
-(defun get-properties (ptr &rest args))
-(defun set-properties! (ptr &rest args))
+;; wiil be defined later
+(defun get-properties (ptr args)
+  (declare (ignore ptr args)))
+(defun set-properties! (ptr args)
+  (declare (ignore ptr args)))
 
 (cffi:defcfun g-object-ref-sink :pointer (obj :pointer))
 (cffi:defcfun g-object-unref :void (obj :pointer))
 
 (defun object-ref-sink (obj)
-  (let ((a (cffi:pointer-address obj)))
-    (tg:finalize obj (lambda () (g-object-unref (cffi:make-pointer a)))))
-  (g-object-ref-sink obj))
+  (let* ((res (g-object-ref-sink obj))
+         (a (cffi:pointer-address res)))
+    (tg:finalize res (lambda () (g-object-unref (cffi:make-pointer a))))
+    res))
 
 (defun build-object (info)
   (multiple-value-bind (call closure) (closures info)
