@@ -107,7 +107,7 @@
 
 (cffi:defcfun (repository-find-by-gtype "g_irepository_find_by_gtype") info-ffi
   (repository repository-type)
-  (g-type :int))
+  (g-type :ulong))
 (export 'repository-find-by-gtype)
 
 (progn

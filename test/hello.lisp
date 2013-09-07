@@ -20,12 +20,15 @@
                                 (cffi:null-pointer)
                                 (cffi:null-pointer)
                                 0)
-    (gir::g-signal-connect-data (gir:call button :this)
-                                "clicked"
-                                (cffi:callback hello)
-                                (cffi:null-pointer)
-                                (cffi:null-pointer)
-                                0)
+    ;; (gir::g-signal-connect-data (gir:call button :this)
+    ;;                             "clicked"
+    ;;                             (cffi:callback hello)
+    ;;                             (cffi:null-pointer)
+    ;;                             (cffi:null-pointer)
+    ;;                             0)
+    (gir:connect button :clicked 
+                 (lambda (button)
+                   (gir:call button :set-properties! 'label "OK")))
     (gir:call window 'add button)
     (gir:call window 'show-all)
     (gir:call *gtk* 'main)))

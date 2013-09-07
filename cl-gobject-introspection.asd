@@ -24,6 +24,7 @@
                (:file "src/field")
                (:file "src/object")
                (:file "src/gvalue")
+               (:file "src/signal")
                (:file "src/properties")
                (:file "src/enum")
                (:file "src/struct")

@@ -78,9 +78,10 @@
 
 (defun gobject (gtype ptr)
   (let ((info (repository-find-by-gtype nil gtype)))
-    (if (and info (eq (g-base-info-get-type info) 'object))
+    (if (and info (eq (info-get-type info) :object))
         (build-object-ptr info ptr)
-        (error "gtype ~a not found in GI" gtype))))
+        (error "gtype ~a not found in GI. Found ~a" 
+               gtype (info-get-type info)))))
 
 (cffi:define-foreign-type pobject ()
   ()

@@ -1,7 +1,5 @@
 (in-package :gir)
 
-(declaim (optimize (debug 3) (speed 0)))
-
 (cffi:defcunion g-value-data
   (v-int :int)
   (v-uint :uint)
@@ -106,10 +104,15 @@
                                                            value))))))))))
   (defun set-value! (ptr gtype value)
     (build-case ptr gtype :set value))
-  (defun gvalue->lisp/free (ptr gtype)
+  (defun gvalue->lisp/free (ptr gtype &key no-free)
     (let ((res (build-case ptr gtype :get)))
-      (cffi:foreign-free ptr)
+      (unless no-free
+        (cffi:foreign-free ptr))
       res)))
+
+(defun gvalue-gtype (gvalue)
+  (cffi:foreign-slot-value gvalue '(:struct g-value-struct) 'g-type))
+  
 
 (defun make-gvalue (gtype &optional (value nil value-p))
   (let* ((ptr (cffi:foreign-alloc '(:struct g-value-struct))))
