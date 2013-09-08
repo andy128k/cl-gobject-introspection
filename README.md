@@ -67,7 +67,9 @@ gtk\_init is called with 0 and null pointer.
 If first argument is a name of constant, then it returns value of the
 constant. For example,
 
-`(call` `*gtk*` `"MAJOR-VERSION")`
+```racket
+(call *gtk* "MAJOR-VERSION")
+```
 
 returns 2 for GTK2 or 3 for GTK3.
 
@@ -78,7 +80,9 @@ that name.
 
 For example,
 
-`(call` `*gtk*` `"WindowType"` `:toplevel)`
+```racket
+(call *gtk* "WindowType" :toplevel)
+```
 
 Returns 0.
 
@@ -88,7 +92,9 @@ argument should be a name of class constructor (in GTK it is usually
 classes have names, beginning with capital char, so you have to use
 either string or symbol like ’|Window|.
 
-`(defvar` `*window*` `(gir:call` `*gtk*` `"Window"` `'new` `0))`
+```racket
+(defvar *window* (gir:call *gtk* "Window" 'new 0))
+```
 
 This call will return a representation of object.
 
@@ -105,7 +111,9 @@ Representation of an object is also a function. First argument of it
 should be either name of method (`string` or `symbol`) or keyword with
 special meaning.
 
-`(call` `window` `'add` `button)`
+```racket
+(call *window* 'add button)
+```
 
 will call method "add" with argument in variable "button".
 
@@ -113,11 +121,15 @@ will call method "add" with argument in variable "button".
 
 To get C pointer to an object call it with "method" :this.
 
-`(call` `*window*` `:this)`
+```racket
+(call *window* :this)
+```
 
 It is possible to make an object from a pointer:
 
-`(defvar` `*window-from-ptr*` `(call` `*gtk*` `"Window"` `window-ptr))`
+```racket
+(defvar *window-from-ptr* (call *gtk* "Window" window-ptr))
+```
 
 `window-ptr` should be `cffi:foreign-pointer` here.
 
