@@ -7,7 +7,7 @@ This is Gobject FFI.
 Usage example:
 
 ```racket
-(defvar *gtk* (gir:gi-ffi "Gtk"))               
+(defvar *gtk* (gir:ffi "Gtk"))                  
 (gir:call *gtk* 'init 0 (cffi:null-pointer))    
 (let ((window (gir:call *gtk* "Window" 'new 0)))
   (gir:call window 'show)                       
@@ -18,16 +18,16 @@ Interface with the GObjectIntrospection is based on repositories. Main
 function is
 
 ```racket
-(gi-ffi repository-name [version]) -> function
-  repository-name : string                    
-  version : string = nil                      
+(ffi repository-name [version]) -> function
+  repository-name : string                 
+  version : string = nil                   
 ```
 
 Returns interface to repository with name `repository-name`
 
 # 2. Using interface objects
 
-Every interface object, returned by `gi-ffi`, or other objects can be
+Every interface object, returned by `ffi`, or other objects can be
 used in function `call` as you can see in the example above. In this
 version `call` is simply alias to `cl:funcall`, but in future versions
 this may change.
@@ -58,7 +58,7 @@ arguments of the function and it returns result of the function. In
 example
 
 ```racket
-(defvar *gtk* (gi-ffi "Gtk"))           
+(defvar *gtk* (ffi "Gtk"))              
 (call *gtk* 'init 0 (cffi:null-pointer))
 ```
 
