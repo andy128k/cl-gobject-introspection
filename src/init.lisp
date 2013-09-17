@@ -58,6 +58,7 @@
 (cffi:defcstruct g-slist
   (data :pointer)
   (next :pointer))
+(cffi:defctype g-slist (:struct g-slist))
 
 (cffi:defcfun g-slist-alloc (:pointer g-slist))
 
