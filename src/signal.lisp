@@ -15,6 +15,13 @@
   (closure :pointer)
   (after :boolean))
 
+;; Define the closure struct to compute its size
+(cffi:defcstruct g-closure
+  (flags :unsigned-int)
+  (marshal :pointer)
+  (data :pointer)
+  (notifiers :pointer))
+
 (defvar *objects* (make-hash-table))
 
 (cffi:defcallback marshal :void ((closure :pointer)
@@ -44,8 +51,9 @@
     (remhash (cffi:pointer-address closure) *objects*)))
 
 (defun make-closure (func)
-  (let ((closure-ptr (g-closure-new-simple
-                      16 (cffi:null-pointer)))) ;; sizeof(GClosure) = 16
+  (let* ((g-closure-size (cffi:foreign-type-size '(:struct g-closure)))
+         (closure-ptr (g-closure-new-simple
+                       g-closure-size (cffi:null-pointer)))) ;; sizeof(GClosure) = 16
     (setf (gethash (cffi:pointer-address closure-ptr) *objects*) func)
     (g-closure-set-marshal closure-ptr (cffi:callback marshal))
     (g-closure-add-finalize-notifier closure-ptr
