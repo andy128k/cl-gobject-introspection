@@ -26,7 +26,7 @@
              (let ((field-info (g-object-info-get-field info i)))
                (cons (info-get-name field-info) field-info))))
          (find-field (lambda (name)
-                       (cdr (or (assoc (c-name name) fields-dict)
+                       (cdr (or (assoc (c-name name) fields-dict :test #'string=)
                                 (error "Bad FFI field name ~a" name)))))
          (closure (lambda (this)
                     (let ((signals (list nil)))
