@@ -8,8 +8,6 @@
   (:export 
    #:argument
    #:enum-info-get-methods
-   #:make-out
-   #:giargs
    #:build-translator
    #:base-info
    #:type-info
