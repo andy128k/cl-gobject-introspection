@@ -100,37 +100,82 @@
                      check-value description giarg-free)))
 (export 'build-translator)
 
+(defmacro incf-giargs (giargs)
+  `(setf ,giargs (cffi:mem-aptr ,giargs '(:union argument) 1)))
+
+(defstruct arg-processor
+  direction
+  setup
+  >value
+  clear)
+
+(defvar *obj-arg-processor*
+  (make-arg-processor
+   :direction :in
+   :setup #'pointer->giarg
+   :clear #'dont-free))
+
+(defun build-arg-processor (arg)
+  (let* ((trans (build-translator (arg-info-get-type arg)))
+	 (direction (arg-info-get-direction arg))
+	 (transfer (arg-info-get-ownership-transfer arg))
+	 (setup (translator->giarg trans))
+	 (arg->value (translator->value trans))
+	 (clear (ecase direction
+		  (:in (translator-free trans))
+		  ((:in-out :out)
+		   (ecase transfer
+		     (:everything (translator-free trans))
+		     ((:nothing :container) #'dont-free))))))
+    (make-arg-processor :direction direction :setup setup
+			:>value arg->value :clear clear)))
 
 (defun get-args (info)
   ;; if construct + in-arg
-  (let ((n-args (g-callable-info-get-n-args info))
-        (in (when (method? (function-info-get-flags info))
-              (list (make-translator #'pointer->giarg #'giarg->pointer 
-                                     #'cffi:pointerp "instance pointer" 
-                                     #'dont-free))))
-        out)
+  (let* ((n-args (g-callable-info-get-n-args info))
+	 (args-processor
+	  (when (method? (function-info-get-flags info))
+	    (list *obj-arg-processor*)))
+	 (in-count (length args-processor))
+	 (out-count 0))
     (dotimes (i n-args)
       (let* ((arg (g-callable-info-get-arg info i))
-             (type (arg-info-get-type arg))
              (direction (arg-info-get-direction arg))
-             (builder (build-translator type)))
-        (when (member direction '(:in :in-out)) (push builder in))
-        (when (member direction '(:out :in-out)) (push builder out))))
-    (values (nreverse in) (nreverse out))))
+	     (arg-processor (build-arg-processor arg)))
+	(ecase direction
+	  (:in (incf in-count))
+	  (:in-out (incf in-count) (incf out-count))
+	  (:out (incf out-count)))
+	(push arg-processor args-processor)))
+    (values (nreverse args-processor) in-count out-count)))
 
-(defun giargs (translators &optional values)
-  (let ((ptr (cffi:foreign-alloc '(:union argument) 
-                                 :count (length translators))))
-    (when values
-      (loop 
-         :for trans :in translators
-         :for val :in values
-         :for i :from 0
-         :do (funcall (translator->giarg trans) 
-                      (cffi:mem-aptr ptr '(:union argument) i)
-                      val)))
-    ptr))
-(export 'giargs)
+(defun setup-giargs (args-processor in-count out-count args)
+  (let ((giargs-in (cffi:foreign-alloc '(:union argument) :count in-count))
+	(giargs-out (cffi:foreign-alloc '(:union argument) :count out-count))
+	(values-out (cffi:foreign-alloc '(:union argument) :count out-count)))
+    (loop
+       :with inp = giargs-in :and outp = giargs-out :and voutp = values-out
+       :for proc :in args-processor
+       :for arg = (if args (car args) nil)
+       :for dir = (arg-processor-direction proc)
+       :do (ecase dir
+	     (:in
+	      (funcall (arg-processor-setup proc) inp arg)
+	      (incf-giargs inp)
+	      (setf args (cdr args)))
+	     (:in-out
+	      (funcall (arg-processor-setup proc) voutp arg)
+	      (pointer->giarg inp voutp)
+	      (pointer->giarg outp voutp)
+	      (incf-giargs inp)
+	      (incf-giargs outp)
+	      (incf-giargs voutp)
+	      (setf args (cdr args)))
+	     (:out
+	      (pointer->giarg outp voutp)
+	      (incf-giargs outp)
+	      (incf-giargs voutp))))
+    (values giargs-in giargs-out values-out)))
 
 (defun return-giarg (info)
   (build-translator (callable-info-get-return-type info)))
@@ -141,51 +186,58 @@
   (out-args :pointer) (n-out-args :int)
   (ret :pointer) (g-error :pointer))
 
-(defun make-out (res-trans giarg-res out-translators giargs-out)
-  (cons 
+(defun make-out (res-trans giarg-res args-processor values-out)
+  (cons
    (funcall (translator->value res-trans) giarg-res)
-   (iter
-     (for trans in out-translators)
-     (for i from 0)
-     (collect (funcall (translator->value trans)
-                       (cffi:mem-aptr giargs-out '(:union argument) i))))))
-(export 'make-out)
+   (loop
+      :with voutp = values-out
+      :for proc in args-processor
+      :for direction = (arg-processor-direction proc)
+      :when (member direction '(:in-out :out))
+      :collect (funcall (arg-processor->value proc) voutp)
+      :and :do (incf-giargs voutp))))
 
-(defun check-args (args in-trans name)
-  (assert (= (length in-trans) (length args))
+(defun check-args (args in-count name)
+  (assert (= in-count (length args))
           (args) 
           "Should be ~a arguments in function ~a" 
-          (length in-trans) name))
+	  in-count name))
 
-(defun clear-giarg (giarg trans)
-  (funcall (translator-free trans) giarg))
-
-(defun clear-giargs (giargs translators)
-  (iter
-    (for trans in translators)
-    (for i from 0)
-    (clear-giarg (cffi:mem-aptr giargs '(:union argument) i) trans)))
+(defun clear-giargs (args-processor giargs-in giargs-out values-out)
+  (loop
+     :with inp = giargs-in :and voutp = values-out
+     :for proc :in args-processor
+     :for dir = (arg-processor-direction proc)
+     :do (ecase dir
+	   (:in
+	    (funcall (arg-processor-clear proc) inp)
+	    (incf-giargs inp))
+	   (:in-out
+	    (funcall (arg-processor-clear proc) voutp)
+	    (incf-giargs inp)
+	    (incf-giargs voutp))
+	   (:out
+	    (funcall (arg-processor-clear proc) voutp)
+	    (incf-giargs voutp))))
+  (cffi:foreign-free giargs-in)
+  (cffi:foreign-free giargs-out)
+  (cffi:foreign-free values-out))
 
 (defun build-function (info)
-  (multiple-value-bind (in-trans out-trans) (get-args info)
+  (multiple-value-bind (args-processor in-count out-count) (get-args info)
     (let ((name (info-get-name info)))
       (lambda (&rest args)
-        (check-args args in-trans name)
-        (values-list 
-         (let ((giargs-in (giargs in-trans args))
-               (giargs-out (giargs out-trans))
-               (res-trans (return-giarg info))
-               (giarg-res (cffi:foreign-alloc '(:union argument))))
-           ;(format t "DEBUG ~a ~a ~a~%" name args 
-           ;        (make-out res-trans giarg-res in-trans giargs-in))
+        (check-args args in-count name)
+        (values-list
+	 (multiple-value-bind (giargs-in giargs-out values-out)
+	     (setup-giargs args-processor in-count out-count args)
+	   (let ((res-trans (return-giarg info))
+		 (giarg-res (cffi:foreign-alloc '(:union argument))))
            (unwind-protect
                 (with-gerror g-error
                   (g-function-info-invoke info
-                                          giargs-in (length in-trans) 
-                                          giargs-out (length out-trans) 
+                                          giargs-in in-count
+                                          giargs-out out-count
                                           giarg-res g-error)
-                  (make-out res-trans giarg-res out-trans giargs-out))
-;             (progn
-               (clear-giargs giargs-in in-trans))))))))
-               ; (clear-giargs giargs-out out-trans)
-               ; (clear-giarg giarg-res res-trans)))))))))
+                  (make-out res-trans giarg-res args-processor values-out))
+               (clear-giargs args-processor giargs-in giargs-out values-out)))))))))
