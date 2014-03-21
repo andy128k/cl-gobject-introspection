@@ -53,6 +53,7 @@
                   (:utf8 'v-string)
                   (:interface 'v-int)
                   (:filename 'v-string)
+		  (:unichar 'v-uint32)
                   (t 'v-pointer)))
          (value->giarg
            (if pointer?
