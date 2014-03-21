@@ -657,8 +657,9 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
   
   (defun constant-info-get-value (constant-info)
     (cffi:with-foreign-object (value '(:pointer (:union argument)))
-      (let ((length (g-constant-info-get-value constant-info value)))
-	(argument->lisp-value value length (constant-info-get-type constant-info)))))
+      (let ((trans (build-translator (constant-info-get-type constant-info))))
+	(g-constant-info-get-value constant-info value)
+	(funcall (translator->value trans) value))))
   
   (export 'constant-info-get-value))
 
