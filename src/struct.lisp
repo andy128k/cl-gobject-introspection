@@ -1,7 +1,14 @@
 (in-package :gir)
 
 (defun struct-closures (info)
-  (let* ((call (lambda (name args)
+  (let* ((constructor-call
+	  (lambda (name args)
+	    (let ((function-info (struct-info-find-method info (c-name name))))
+	      (unless (and function-info
+			   (constructor? (function-info-get-flags function-info)))
+		(error "Bad FFI constructor name ~a" name))
+	      (apply (build-function function-info :return-raw-pointer t) args))))
+	 (call (lambda (name args)
                  (let ((function-info (struct-info-find-method 
                                        info (c-name name))))
                    (if function-info
@@ -29,16 +36,16 @@
                                             (funcall find-field name) 
                                             value)))
                           (t (funcall call name (cons this args)))))))))
-    (values call closure)))
+    (values constructor-call closure)))
 
 (defun build-struct (info)
-  (multiple-value-bind (call closure) (struct-closures info)
+  (multiple-value-bind (constructor-call closure) (struct-closures info)
     (lambda (name &rest args)
-      (let ((this (if (cffi:pointerp name) name 
-                      (funcall call name args))))
-        (funcall closure this)))))
+      (let ((this (if (cffi:pointerp name) name
+		      (funcall constructor-call name args))))
+	(funcall closure this)))))
 
 (defun build-struct-ptr (info ptr)
-  (multiple-value-bind (call closure) (struct-closures info)
-    (declare (ignore call))
+  (multiple-value-bind (constructor-call closure) (struct-closures info)
+    (declare (ignore constructor-call))
     (funcall closure ptr)))

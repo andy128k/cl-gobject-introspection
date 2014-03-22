@@ -15,7 +15,14 @@
            (find-ffi-method (object-info-get-parent info) name))))
 
 (defun closures (info)
-  (let* ((call (lambda (name args)
+  (let* ((constructor-call
+	  (lambda (name args)
+	    (let ((function-info (find-ffi-method info (c-name name))))
+	      (unless (and function-info
+			   (constructor? (function-info-get-flags function-info)))
+		(error "Bad FFI constructor name ~a" name))
+	      (apply (build-function function-info :return-raw-pointer t) args))))
+	 (call (lambda (name args)
                  (let ((function-info (find-ffi-method info (c-name name))))
                    (if function-info
                        (apply (build-function function-info) args)
@@ -47,7 +54,7 @@
                           (:properties
                            (get-properties this args))
                           (t (funcall call name (cons this args)))))))))
-    (values call closure)))
+    (values constructor-call closure)))
 
 ;; wiil be defined later
 (defun get-properties (ptr args)
@@ -65,15 +72,15 @@
     res))
 
 (defun build-object (info)
-  (multiple-value-bind (call closure) (closures info)
+  (multiple-value-bind (constructor-call closure) (closures info)
     (lambda (name &rest args)
-      (let ((this (if (cffi:pointerp name) name 
-                      (object-ref-sink (funcall call name args)))))
-        (funcall closure this)))))
+      (let ((this (if (cffi:pointerp name) name
+		      (object-ref-sink (funcall constructor-call name args)))))
+	(funcall closure this)))))
 
 (defun build-object-ptr (info ptr)
-  (multiple-value-bind (call closure) (closures info)
-    (declare (ignore call))
+  (multiple-value-bind (constructor-call closure) (closures info)
+    (declare (ignore constructor-call))
     (funcall closure ptr)))
 
 (defun gobject (gtype ptr)

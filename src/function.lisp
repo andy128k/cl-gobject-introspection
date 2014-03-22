@@ -7,6 +7,9 @@
         (:is-constructor (return-from method? nil))
         (:is-method (setf res t))))))
 
+(defun constructor? (flags)
+  (member :is-constructor flags))
+
 (defstruct 
     (translator 
       (:constructor make-translator (>giarg >value check description free)))
@@ -82,6 +85,17 @@
                      (cffi:foreign-string-to-lisp 
                       (cffi:foreign-slot-value 
                        giarg '(:union argument) 'v-string))))
+		 (:interface
+		  (lambda (giarg)
+		    (let ((this (cffi:foreign-slot-value
+				 giarg '(:union argument) 'v-pointer))
+			  (info (type-info-get-interface type)))
+		      (case (info-get-type info)
+			(:struct
+			 (funcall (build-struct info) this))
+			(:object
+			 (funcall (build-object info) this))
+			(t this)))))
                  (t #'giarg->pointer))
                (case tag
                  (:void (lambda (giarg) (declare (ignore giarg)) nil))
@@ -100,6 +114,11 @@
     (make-translator value->giarg giarg->value 
                      check-value description giarg-free)))
 (export 'build-translator)
+
+(defvar *raw-pointer-translator*
+  (make-translator #'pointer->giarg #'giarg->pointer
+		   #'cffi:pointerp "raw pointer"
+		   #'dont-free))
 
 (defmacro incf-giargs (giargs)
   `(setf ,giargs (cffi:mem-aptr ,giargs '(:union argument) 1)))
@@ -224,7 +243,7 @@
   (cffi:foreign-free giargs-out)
   (cffi:foreign-free values-out))
 
-(defun build-function (info)
+(defun build-function (info &key return-raw-pointer)
   (multiple-value-bind (args-processor in-count out-count) (get-args info)
     (let ((name (info-get-name info)))
       (lambda (&rest args)
@@ -232,7 +251,9 @@
         (values-list
 	 (multiple-value-bind (giargs-in giargs-out values-out)
 	     (setup-giargs args-processor in-count out-count args)
-	   (let ((res-trans (return-giarg info))
+	   (let ((res-trans (if return-raw-pointer
+				*raw-pointer-translator*
+				(return-giarg info)))
 		 (giarg-res (cffi:foreign-alloc '(:union argument))))
            (unwind-protect
                 (with-gerror g-error
