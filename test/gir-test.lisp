@@ -99,11 +99,14 @@
 		    (dt2 (call *glib* "DateTime" 'new-utc 2000 1 1 0 0 1d1)))
 	       (call dt2 'difference dt1)))))
 
+(defvar *entry-this*)
+
 (test (struct-foreign-obj :depends-on (and struct-method struct-field))
       "Test the struct foreign object support"
+      (is-true (progn (setf *entry-this* (call *entry* :this))
+		      (pointerp *entry-this*)))
       (is (equal (list *entry-target* *entry-flags2*)
-		 (let* ((rentry (call *entry* 'copy))
-			(entry (call *gtk* "TargetEntry" rentry)))
+		 (let ((entry (call *gtk* "TargetEntry" *entry-this*)))
 		   (list (call entry :field 'target)
 			 (call entry :field 'flags))))))
 
