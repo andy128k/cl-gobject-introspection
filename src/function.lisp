@@ -63,9 +63,14 @@
                (case tag
                  ((:utf8 :filename)
                   (lambda (giarg value)
-                    (setf (cffi:foreign-slot-value 
-                           giarg '(:union argument) 'v-string)
-                          (cffi:foreign-string-alloc value))))
+		    (let ((pointer (if value (cffi:foreign-string-alloc value)
+				       (cffi:null-pointer))))
+		      (setf (cffi:foreign-slot-value
+			     giarg '(:union argument) 'v-string) pointer))))
+		 (:interface
+		  (lambda (giarg value)
+		    (pointer->giarg giarg
+				    (if value value (cffi:null-pointer)))))
                  (t #'pointer->giarg))
                (case tag
                  (:void (lambda (giarg value)
@@ -92,9 +97,13 @@
 			  (info (type-info-get-interface type)))
 		      (case (info-get-type info)
 			(:struct
-			 (funcall (build-struct info) this))
+			 (if (cffi:null-pointer-p this)
+			     nil
+			     (funcall (build-struct info) this)))
 			(:object
-			 (funcall (build-object info) this))
+			 (if (cffi:null-pointer-p this)
+			     nil
+			     (funcall (build-object info) this)))
 			(t this)))))
                  (t #'giarg->pointer))
                (case tag
