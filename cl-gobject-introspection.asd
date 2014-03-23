@@ -14,6 +14,8 @@
   :licence "BSD"
   :depends-on (:cffi :iterate :trivial-garbage)
   :serial t
+  :in-order-to ((test-op (load-op :cl-gobject-introspection-test)))
+  :perform (test-op (o c) (uiop:symbol-call :gir-test :main))
   :components ((:file "src/package")
                (:file "src/init")
                (:file "src/typelib")
