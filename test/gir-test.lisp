@@ -29,20 +29,6 @@
       (is (= 2.718282d0 (call *glib* "E")))
       (is (equal "i" (call *glib* "GINT32_FORMAT"))))
 
-(defun argv-alloc (args)
-  (let* ((argc (length args))
-	 (argv (foreign-alloc :pointer :count argc)))
-    (loop
-       :for i :below argc
-       :for arg in args
-       :do (setf (mem-aref argv :pointer i) (foreign-string-alloc arg)))
-    argv))
-
-(defun argv-to-list (argc argv)
-  (loop
-     :for i :below argc
-     :collect (foreign-string-to-lisp (mem-aref argv :pointer i))))
-
 (test (function :depends-on ffi)
       "Test the function"
       ;; in-arguments, #\A

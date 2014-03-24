@@ -30,4 +30,5 @@
                (:file "src/properties")
                (:file "src/enum")
                (:file "src/struct")
-               (:file "src/ffi")))
+               (:file "src/ffi")
+	       (:file "src/utilities")))
