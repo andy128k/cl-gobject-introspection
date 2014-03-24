@@ -110,6 +110,10 @@
 		   (list (call entry :field 'target)
 			 (call entry :field 'flags))))))
 
+(test (struct-null :depends-on struct-constructor)
+      "Test the null-pointer to struct return value"
+      (is (eq nil (call *glib* 'main-current-source))))
+
 (def-suite object :description "Test the object" :in gir)
 
 (in-suite object)
