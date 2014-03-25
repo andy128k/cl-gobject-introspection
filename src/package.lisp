@@ -137,6 +137,9 @@
    #:struct-info-get-alignment
    #:interface-info-get-constants
 
+   #:argv-alloc
+   #:argv-to-list
+
    #:ffi
    #:call))
 
