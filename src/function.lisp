@@ -10,6 +10,15 @@
 (defun constructor? (flags)
   (member :is-constructor flags))
 
+(defun class-function? (flags)
+  (dolist (flag flags t)
+    (case flag
+      (:is-constructor (return nil))
+      (:is-method (return nil))
+      (:is-getter (return nil))
+      (:is-setter (return nil))
+      (:wraps-vfunc (return nil)))))
+
 (defstruct 
     (translator 
       (:constructor make-translator (>giarg >value check description free)))

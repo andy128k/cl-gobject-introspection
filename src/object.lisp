@@ -15,14 +15,7 @@
            (find-ffi-method (object-info-get-parent info) name))))
 
 (defun closures (info)
-  (let* ((constructor-call
-	  (lambda (name args)
-	    (let ((function-info (find-ffi-method info (c-name name))))
-	      (unless (and function-info
-			   (constructor? (function-info-get-flags function-info)))
-		(error "Bad FFI constructor name ~a" name))
-	      (apply (build-function function-info :return-raw-pointer t) args))))
-	 (call (lambda (name args)
+  (let* ((call (lambda (name args)
                  (let ((function-info (find-ffi-method info (c-name name))))
                    (if function-info
                        (apply (build-function function-info) args)
@@ -54,7 +47,7 @@
                           (:properties
                            (get-properties this args))
                           (t (funcall call name (cons this args)))))))))
-    (values constructor-call closure)))
+    closure))
 
 ;; wiil be defined later
 (defun get-properties (ptr args)
@@ -72,15 +65,27 @@
     res))
 
 (defun build-object (info)
-  (multiple-value-bind (constructor-call closure) (closures info)
+  (let ((closure (closures info)))
     (lambda (name &rest args)
-      (let ((this (if (cffi:pointerp name) name
-		      (object-ref-sink (funcall constructor-call name args)))))
-	(funcall closure this)))))
+      (if (cffi:pointerp name)
+	  (funcall closure name)
+	  (let* ((function-info (find-ffi-method info (c-name name)))
+		 (flags))
+	    (if function-info
+		(setf flags (function-info-get-flags function-info))
+		(error "Bad FFI constructor/function name ~a" name))
+	    (cond
+	      ((constructor? flags)
+	       (let ((this (apply (build-function function-info
+						  :return-raw-pointer t) args)))
+		 (funcall closure (object-ref-sink this))))
+	      ((class-function? flags)
+	       (apply (build-function function-info) args))
+	      (t
+	       (error "~a is not constructor or class function" name))))))))
 
 (defun build-object-ptr (info ptr)
-  (multiple-value-bind (constructor-call closure) (closures info)
-    (declare (ignore constructor-call))
+  (let ((closure (closures info)))
     (funcall closure ptr)))
 
 (defun gobject (gtype ptr)
