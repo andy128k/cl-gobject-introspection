@@ -108,6 +108,10 @@
 (defparameter *app-id2* "test.obj.id2")
 (defvar *app*)
 
+(test (class-function :depends-on function)
+      "Test the class function"
+      (is (eq t (call *gio* "Application" 'id-is-valid *app-id1*))))
+
 (test (object-constructor :depends-on (and function enum))
       "Test the object constructor"
       (is (eql 'function
