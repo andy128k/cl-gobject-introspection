@@ -100,20 +100,19 @@
                       (cffi:foreign-slot-value 
                        giarg '(:union argument) 'v-string))))
 		 (:interface
-		  (lambda (giarg)
-		    (let ((this (cffi:foreign-slot-value
-				 giarg '(:union argument) 'v-pointer))
-			  (info (type-info-get-interface type)))
-		      (case (info-get-type info)
-			(:struct
-			 (if (cffi:null-pointer-p this)
-			     nil
-			     (funcall (build-struct info) this)))
-			(:object
-			 (if (cffi:null-pointer-p this)
-			     nil
-			     (funcall (build-object info) this)))
-			(t this)))))
+		  (let* ((info (type-info-get-interface type))
+			 (info-type (info-get-type info)))
+		    (case info-type
+		      ((:struct :object)
+		       (let ((struct-object (if (eq info-type :struct)
+						(build-struct info)
+						(build-object info))))
+			 (lambda (giarg)
+			   (let ((this (cffi:foreign-slot-value
+					giarg '(:union argument) 'v-pointer)))
+			     (if (cffi:null-pointer-p this) nil
+				 (funcall struct-object this))))))
+		      (t #'giarg->pointer))))
                  (t #'giarg->pointer))
                (case tag
                  (:void (lambda (giarg) (declare (ignore giarg)) nil))
