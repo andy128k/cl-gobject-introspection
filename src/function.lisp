@@ -26,15 +26,31 @@
 
 (defstruct 
     (translator 
-      (:constructor make-translator (>giarg >value check description free)))
-  >giarg >value check description free)
+      (:constructor make-translator (>giarg >value check description
+					    free array-length)))
+  >giarg >value check description free array-length)
+
+(defun zero-memory (position length)
+  (loop
+     :for i :below length
+     :for pos = position :then (cffi:inc-pointer pos 1)
+     :do (setf (cffi:mem-ref pos :uint8) 0)))
+
+(defun zero? (position length)
+  (loop
+     :for i :below length
+     :for pos = position :then (cffi:inc-pointer pos 1)
+     :unless (eql (cffi:mem-ref pos :uint8) 0)
+     :do (return-from zero? nil))
+  t)
 
 (defun set-pointer (position value)
   (typecase value
     (function (set-pointer position (funcall value :this)))
     (t (setf (cffi:mem-ref position :pointer) value))))
 
-(defun get-pointer (position)
+(defun get-pointer (position &optional length)
+  (declare (ignore length))
   (cffi:mem-ref position :pointer))
 
 (defun pointer->giarg (giarg value)
@@ -44,8 +60,8 @@
 (defun giarg->pointer (giarg)
   (get-pointer (cffi:foreign-slot-pointer giarg '(:union argument) 'v-pointer)))
 
-(defun dont-free (giarg)
-  (declare (ignore giarg)))
+(defun dont-free (giarg &optional length)
+  (declare (ignore giarg length)))
 
 (defun build-converter (type)
   (let* ((tag (type-info-get-tag type))
@@ -79,6 +95,26 @@
 			     (:filename :pointer)
 			     (:unichar :int32)
 			     (t :pointer))))
+	 param-type
+	 param-converter
+	 param-size
+	 param-set
+	 param-get
+	 param-free
+	 zero-terminated?
+	 fixed-size
+	 (array-type (when (eq tag :array)
+		       (setf param-type (type-info-get-param-type type 0))
+		       (setf param-converter (build-converter param-type))
+		       (setf param-size (converter-size param-converter))
+		       (setf param-set (converter-set param-converter))
+		       (setf param-get (converter-get param-converter))
+		       (setf param-free (converter-free param-converter))
+		       (setf zero-terminated?
+			     (type-info-is-zero-terminated type))
+		       (let ((size (type-info-get-array-fixed-size type)))
+			 (if (/= -1 size) (setf fixed-size size)))
+		       (type-info-get-array-type type)))
 	 (size (cffi:foreign-type-size foreign-type))
          (set
 	  (if pointer?
@@ -91,6 +127,27 @@
 		(:interface
 		 (lambda (position value)
 		   (set-pointer position (if value value (cffi:null-pointer)))))
+		(:array
+		 (case array-type
+		   (:c
+		    (lambda (position value)
+		      (let* ((length (if fixed-size
+					 fixed-size
+					 (+ (length value)
+					    (if zero-terminated? 1 0))))
+			     (array (cffi:foreign-alloc
+				     :int8 :count (* length param-size))))
+			(loop
+			   :for pos = array :then (cffi:inc-pointer
+						   pos param-size)
+			   :for i :below (if zero-terminated?
+					     (1- length) length)
+			   :for element :in value
+			   :do (funcall param-set pos element)
+			   :finally (if zero-terminated?
+					(zero-memory pos param-size)))
+			(set-pointer position array))))
+		   (t #'set-pointer)))
 		(t #'set-pointer))
 	      (case tag
 		(:void (lambda (position value)
@@ -118,15 +175,52 @@
 			     (if (cffi:null-pointer-p this) nil
 				 (funcall struct-object this))))))
 		      (t #'get-pointer))))
-                 (t #'get-pointer))
+		 (:array
+		  (case array-type
+		    (:c
+		     (lambda (position &optional length)
+		       (if fixed-size
+			   (if (or (null length) (> length fixed-size))
+			       (setf length fixed-size)))
+		       (loop
+			  :for i :upfrom 0
+			  :for pos = (get-pointer position)
+			  :then (cffi:inc-pointer pos param-size)
+			  :until (and (or (not zero-terminated?) length)
+				      (>= i length))
+			  :until (and zero-terminated? (zero? pos param-size))
+			  :collect (funcall param-get pos))))
+		    (t #'get-pointer)))
+		 (t #'get-pointer))
                (case tag
                  (:void (lambda (position) (declare (ignore position)) nil))
                  (t (lambda (position)
 		      (cffi:mem-ref position foreign-type))))))
          (free
-          (if (and pointer? (member tag '(:utf8 :filename)))
-              (lambda (position)
-		(cffi:foreign-free (get-pointer position)))
+	  (if pointer?
+	      (case tag
+		((:utf8 :filename)
+		 (lambda (position)
+		   (cffi:foreign-free (get-pointer position))))
+		(:array
+		 (case array-type
+		   (:c
+		    (lambda (position &optional length)
+		      (if fixed-size
+			  (if (or (null length) (> length fixed-size))
+			      (setf length fixed-size)))
+		      (let ((array (get-pointer position)))
+			(loop
+			   :for i :upfrom 0
+			   :for pos = array
+			   :then (cffi:inc-pointer pos param-size)
+			   :until (and (or (not zero-terminated?) length)
+				       (>= i length))
+			   :until (and zero-terminated? (zero? pos param-size))
+			   :do (funcall param-free pos))
+			(cffi:foreign-free array))))
+		   (t #'dont-free)))
+		(t #'dont-free))
               #'dont-free)))
     (make-converter size set get free)))
 (export 'build-converter)
@@ -164,38 +258,47 @@
 		      (:unichar 'v-uint32)
 		      (t 'v-pointer))))
 	 (converter (build-converter type))
+	 (array-length (let ((length (type-info-get-array-length type)))
+			 (if (eql length -1) nil length)))
          (value->giarg
 	  (lambda (giarg value)
 	    (funcall (converter-set converter)
 		     (cffi:foreign-slot-pointer giarg '(:union argument) field)
 		     value)))
          (giarg->value
-	  (lambda (giarg)
-	    (funcall (converter-get converter)
-		     (cffi:foreign-slot-pointer giarg '(:union argument)
-						field))))
+	  (lambda (giarg &optional length)
+	    (let ((position (cffi:foreign-slot-pointer giarg '(:union argument)
+						       field))
+		  (get (converter-get converter)))
+	      (if length
+		  (funcall get position length)
+		  (funcall get position)))))
          (giarg-free
-	  (lambda (giarg)
-	    (funcall (converter-free converter)
-		     (cffi:foreign-slot-pointer giarg '(:union argument)
-						field))))
+	  (lambda (giarg &optional length)
+	    (let ((position (cffi:foreign-slot-pointer giarg '(:union argument)
+						       field))
+		  (free (converter-free converter)))
+	      (if length
+		  (funcall free position length)
+		  (funcall free position)))))
          (check-value
           (lambda (value) (declare (ignore value)) t))
          (description (format nil "~a" tag)))
     (make-translator value->giarg giarg->value 
-                     check-value description giarg-free)))
+                     check-value description giarg-free array-length)))
 (export 'build-translator)
 
 (defvar *raw-pointer-translator*
   (make-translator #'pointer->giarg #'giarg->pointer
 		   #'cffi:pointerp "raw pointer"
-		   #'dont-free))
+		   #'dont-free nil))
 
 (defmacro incf-giargs (giargs)
   `(setf ,giargs (cffi:mem-aptr ,giargs '(:union argument) 1)))
 
 (defstruct arg-processor
   direction
+  array-length
   setup
   >value
   clear)
@@ -218,8 +321,9 @@
 		   (ecase transfer
 		     (:everything (translator-free trans))
 		     ((:nothing :container) #'dont-free))))))
-    (make-arg-processor :direction direction :setup setup
-			:>value arg->value :clear clear)))
+    (make-arg-processor :direction direction
+			:array-length (translator-array-length trans)
+			:setup setup :>value arg->value :clear clear)))
 
 (defun get-args (info)
   ;; if construct + in-arg
@@ -278,15 +382,35 @@
   (ret :pointer) (g-error :pointer))
 
 (defun make-out (res-trans giarg-res args-processor values-out)
-  (cons
-   (funcall (translator->value res-trans) giarg-res)
-   (loop
-      :with voutp = values-out
-      :for proc in args-processor
-      :for direction = (arg-processor-direction proc)
-      :when (member direction '(:in-out :out))
-      :collect (funcall (arg-processor->value proc) voutp)
-      :and :do (incf-giargs voutp))))
+  (let* ((all-out-args
+	  (loop
+	     :with voutp = values-out
+	     :for proc in args-processor
+	     :for out? = (not (eq (arg-processor-direction proc) :in))
+	     :collect (if (and out? (null (arg-processor-array-length proc)))
+			  (funcall (arg-processor->value proc) voutp))
+	     :when out?
+	     :do (incf-giargs voutp)))
+	 (out-args
+	  (loop
+	     :with voutp = values-out
+	     :for proc in args-processor
+	     :for array-length = (arg-processor-array-length proc)
+	     :for out-arg in all-out-args
+	     :for out? = (not (eq (arg-processor-direction proc) :in))
+	     :when out?
+	     :collect (if array-length
+			  (funcall (arg-processor->value proc)
+				   voutp (nth array-length all-out-args))
+			  out-arg)
+	     :and :do (incf-giargs voutp)))
+	 (return-val
+	  (let ((array-length (translator-array-length res-trans)))
+	    (if array-length
+		(funcall (translator->value res-trans) giarg-res
+			 (nth array-length all-out-args))
+		(funcall (translator->value res-trans) giarg-res)))))
+    (values (cons return-val out-args) all-out-args)))
 
 (defun check-args (args in-count name)
   (assert (= in-count (length args))
@@ -294,21 +418,26 @@
           "Should be ~a arguments in function ~a" 
 	  in-count name))
 
-(defun clear-giargs (args-processor giargs-in giargs-out values-out)
+(defun clear-giargs (args-processor giargs-in giargs-out values-out
+		     args all-out-args)
   (loop
      :with inp = giargs-in :and voutp = values-out
      :for proc :in args-processor
      :for dir = (arg-processor-direction proc)
+     :for array-length = (arg-processor-array-length proc)
      :do (ecase dir
 	   (:in
-	    (funcall (arg-processor-clear proc) inp)
+	    (funcall (arg-processor-clear proc) inp
+		     (if array-length (nth array-length args)))
 	    (incf-giargs inp))
 	   (:in-out
-	    (funcall (arg-processor-clear proc) voutp)
+	    (funcall (arg-processor-clear proc) voutp
+		     (if array-length (nth array-length all-out-args)))
 	    (incf-giargs inp)
 	    (incf-giargs voutp))
 	   (:out
-	    (funcall (arg-processor-clear proc) voutp)
+	    (funcall (arg-processor-clear proc) voutp
+		     (if array-length (nth array-length all-out-args)))
 	    (incf-giargs voutp))))
   (cffi:foreign-free giargs-in)
   (cffi:foreign-free giargs-out)
@@ -325,12 +454,17 @@
 	   (let ((res-trans (if return-raw-pointer
 				*raw-pointer-translator*
 				(return-giarg info)))
-		 (giarg-res (cffi:foreign-alloc '(:union argument))))
-           (unwind-protect
-                (with-gerror g-error
-                  (g-function-info-invoke info
-                                          giargs-in in-count
-                                          giargs-out out-count
-                                          giarg-res g-error)
-                  (make-out res-trans giarg-res args-processor values-out))
-               (clear-giargs args-processor giargs-in giargs-out values-out)))))))))
+		 (giarg-res (cffi:foreign-alloc '(:union argument)))
+		 all-out-args)
+	     (unwind-protect
+		  (with-gerror g-error
+		    (g-function-info-invoke info
+					    giargs-in in-count
+					    giargs-out out-count
+					    giarg-res g-error)
+		    (multiple-value-bind (out all-out)
+			(make-out res-trans giarg-res args-processor values-out)
+		      (setf all-out-args all-out)
+		      out))
+               (clear-giargs args-processor giargs-in giargs-out values-out
+			     args all-out-args)))))))))
