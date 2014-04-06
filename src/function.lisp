@@ -36,6 +36,13 @@
      :for pos = position :then (cffi:inc-pointer pos 1)
      :do (setf (cffi:mem-ref pos :uint8) 0)))
 
+(defun copy-memory (to from length)
+  (loop
+     :for i :below length
+     :for pos-to = to :then (cffi:inc-pointer pos-to 1)
+     :for pos-from = from :then (cffi:inc-pointer pos-from 1)
+     :do (setf (cffi:mem-ref pos-to :uint8) (cffi:mem-ref pos-from :uint8))))
+
 (defun zero? (position length)
   (loop
      :for i :below length
@@ -115,7 +122,16 @@
 		       (let ((size (type-info-get-array-fixed-size type)))
 			 (if (/= -1 size) (setf fixed-size size)))
 		       (type-info-get-array-type type)))
-	 (size (cffi:foreign-type-size foreign-type))
+	 (interface (type-info-get-interface type))
+	 (size (if (and (not pointer?) (eq tag :interface))
+		   (typecase interface
+		     (struct-info
+		      (struct-info-get-size interface))
+		     (union-info
+		      (union-info-get-size interface))
+		     (t
+		      (cffi:foreign-type-size :uint)))
+		   (cffi:foreign-type-size foreign-type)))
          (set
 	  (if pointer?
 	      (case tag
@@ -153,6 +169,17 @@
 		(:void (lambda (position value)
 			 (declare (ignore value))
 			 (set-pointer position (cffi:null-pointer))))
+		(:interface
+		 (typecase interface
+		   ((or union-info struct-info)
+		    (lambda (position value)
+		      (let ((pointer (typecase value
+				       (function (funcall value :this))
+				       (t value))))
+			(copy-memory position pointer size))))
+		   (t
+		    (lambda (position value)
+		      (setf (cffi:mem-ref position foreign-type) value)))))
 		(t (lambda (position value)
 		     (setf (cffi:mem-ref position foreign-type) value))))))
          (get
@@ -163,18 +190,16 @@
                      (cffi:foreign-string-to-lisp
 		      (get-pointer position))))
 		 (:interface
-		  (let* ((info (type-info-get-interface type))
-			 (info-type (info-get-type info)))
-		    (case info-type
-		      ((:struct :object)
-		       (let ((struct-object (if (eq info-type :struct)
-						(build-struct info)
-						(build-object info))))
-			 (lambda (position)
-			   (let ((this (get-pointer position)))
-			     (if (cffi:null-pointer-p this) nil
-				 (funcall struct-object this))))))
-		      (t #'get-pointer))))
+		  (typecase interface
+		    ((or struct-info object-info)
+		     (let ((class (if (typep interface 'struct-info)
+				      (build-struct interface)
+				      (build-object interface))))
+		       (lambda (position)
+			 (let ((this (get-pointer position)))
+			   (if (cffi:null-pointer-p this) nil
+			       (funcall class this))))))
+		    (t #'get-pointer)))
 		 (:array
 		  (case array-type
 		    (:c
@@ -194,6 +219,17 @@
 		 (t #'get-pointer))
                (case tag
                  (:void (lambda (position) (declare (ignore position)) nil))
+		 (:interface
+		  (typecase interface
+		    (struct-info
+		     (let ((struct-class (build-struct interface)))
+		       (lambda (position)
+			 (funcall struct-class position))))
+		    (union-info
+		     (lambda (position) position))
+		    (t
+		     (lambda (position)
+		       (cffi:mem-ref position foreign-type)))))
                  (t (lambda (position)
 		      (cffi:mem-ref position foreign-type))))))
          (free
@@ -217,11 +253,18 @@
 			   :until (and (or (not zero-terminated?) length)
 				       (>= i length))
 			   :until (and zero-terminated? (zero? pos param-size))
-			   :do (funcall param-free pos))
-			(cffi:foreign-free array))))
+			   :do (if (funcall param-free pos)
+				   (return t))
+			   :finally (cffi:foreign-free array)))))
 		   (t #'dont-free)))
 		(t #'dont-free))
-              #'dont-free)))
+	      (case tag
+		(:interface
+		 (typecase interface
+		   ((or struct-info union-info)
+		    (lambda (position) (declare (ignore position)) t))
+		   (t #'dont-free)))
+		(t #'dont-free)))))
     (make-converter size set get free)))
 (export 'build-converter)
 
