@@ -341,6 +341,7 @@
 
 (defstruct arg-processor
   direction
+  for-array-length?
   array-length
   setup
   >value
@@ -375,7 +376,8 @@
 	  (when (method? (function-info-get-flags info))
 	    (list *obj-arg-processor*)))
 	 (in-count (length args-processor))
-	 (out-count 0))
+	 (out-count 0)
+	 (in-array-length-count 0))
     (dotimes (i n-args)
       (let* ((arg (g-callable-info-get-arg info i))
              (direction (arg-info-get-direction arg))
@@ -385,7 +387,19 @@
 	  (:in-out (incf in-count) (incf out-count))
 	  (:out (incf out-count)))
 	(push arg-processor args-processor)))
-    (values (nreverse args-processor) in-count out-count)))
+    (setf args-processor (nreverse args-processor))
+    (loop
+       :for arg-processor :in args-processor
+       :for array-length = (arg-processor-array-length arg-processor)
+       :when array-length
+       :do (setf (arg-processor-for-array-length?
+		  (nth array-length args-processor)) t))
+    (loop
+       :for arg-processor :in args-processor
+       :when (and (not (eq (arg-processor-direction arg-processor) :out))
+		  (arg-processor-for-array-length? arg-processor))
+       :do (incf in-array-length-count))
+    (values args-processor in-count out-count in-array-length-count)))
 
 (defun setup-giargs (args-processor in-count out-count args)
   (let ((giargs-in (cffi:foreign-alloc '(:union argument) :count in-count))
@@ -441,12 +455,13 @@
 	     :for array-length = (arg-processor-array-length proc)
 	     :for out-arg in all-out-args
 	     :for out? = (not (eq (arg-processor-direction proc) :in))
-	     :when out?
+	     :when (and out? (not (arg-processor-for-array-length? proc)))
 	     :collect (if array-length
 			  (funcall (arg-processor->value proc)
 				   voutp (nth array-length all-out-args))
 			  out-arg)
-	     :and :do (incf-giargs voutp)))
+	     :when out?
+	     :do (incf-giargs voutp)))
 	 (return-val
 	  (let ((array-length (translator-array-length res-trans)))
 	    (if array-length
@@ -460,6 +475,25 @@
           (args) 
           "Should be ~a arguments in function ~a" 
 	  in-count name))
+
+(defun add-array-length (args args-processor)
+  (let ((all-in-args (make-list (length args-processor))))
+    (loop
+       :for i :upfrom 0
+       :for arg-processor :in args-processor
+       :unless (or (eq (arg-processor-direction arg-processor) :out)
+		   (arg-processor-for-array-length? arg-processor))
+       :do (let ((arg (car args))
+		 (array-length (arg-processor-array-length arg-processor)))
+	     (setf (nth i all-in-args) arg)
+	     (if array-length
+		 (setf (nth array-length all-in-args) (length arg)))
+	     (setf args (cdr args))))
+    (loop
+       :for arg-processor :in args-processor
+       :for arg :in all-in-args
+       :unless (eq (arg-processor-direction arg-processor) :out)
+       :collect arg)))
 
 (defun clear-giargs (args-processor giargs-in giargs-out values-out
 		     args all-out-args)
@@ -487,10 +521,13 @@
   (cffi:foreign-free values-out))
 
 (defun build-function (info &key return-raw-pointer)
-  (multiple-value-bind (args-processor in-count out-count) (get-args info)
+  (multiple-value-bind (args-processor in-count out-count in-array-length-count)
+      (get-args info)
     (let ((name (info-get-name info)))
       (lambda (&rest args)
-        (check-args args in-count name)
+        (check-args args (- in-count in-array-length-count) name)
+	(if (> in-array-length-count 0)
+	    (setf args (add-array-length args args-processor)))
         (values-list
 	 (multiple-value-bind (giargs-in giargs-out values-out)
 	     (setup-giargs args-processor in-count out-count args)
