@@ -38,10 +38,10 @@
       ;; in-out arguments
       (is (equal '("test")
 		 (let ((args '("test" "--display" ":100000.0")))
-		   (multiple-value-bind (ret nargc nargv)
-		       (call *gtk* 'init-check (length args) (argv-alloc args))
+		   (multiple-value-bind (ret nargv)
+		       (call *gtk* 'init-check args)
 		     (declare (ignore ret))
-		     (argv-to-list nargc nargv)))))
+		     nargv))))
       ;; out arguments
       (is (equal '(nil 0.5d0 0.4d0)
 		 (multiple-value-bind (ret h s v)
@@ -153,5 +153,17 @@
 		 (call cancellable 'cancel)
 		 is-cancelled)))
 
+(in-suite gir)
+
+(test (array :depends-on object-method)
+      "Test the array parameter/return"
+      (is (equal "abc/de/f"
+		 (call *glib* 'build-filenamev '("abc" "de" "f"))))
+      (is (equal '("a" "b" "c")
+		 (let ((regex (call *glib* "Regex" 'new "_"
+				    (call *glib* "RegexCompileFlags" :multiline)
+				    (call *glib* "RegexMatchFlags" :newline_lf))))
+		   (call regex 'split "a_b_c"
+			 (call *glib* "RegexMatchFlags" :newline_lf))))))
 (defun main ()
   (run! 'gir))
