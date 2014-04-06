@@ -38,9 +38,9 @@
       ;; in-out arguments
       (is (equal '("test")
 		 (let ((args '("test" "--display" ":100000.0")))
-		   (multiple-value-bind (ret nargc nargv)
-		       (call *gtk* 'init-check (length args) args)
-		     (declare (ignore ret nargc))
+		   (multiple-value-bind (ret nargv)
+		       (call *gtk* 'init-check args)
+		     (declare (ignore ret))
 		     nargv))))
       ;; out arguments
       (is (equal '(nil 0.5d0 0.4d0)
