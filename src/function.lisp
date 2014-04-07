@@ -30,27 +30,6 @@
 					    free array-length)))
   >giarg >value check description free array-length)
 
-(defun zero-memory (position length)
-  (loop
-     :for i :below length
-     :for pos = position :then (cffi:inc-pointer pos 1)
-     :do (setf (cffi:mem-ref pos :uint8) 0)))
-
-(defun copy-memory (to from length)
-  (loop
-     :for i :below length
-     :for pos-to = to :then (cffi:inc-pointer pos-to 1)
-     :for pos-from = from :then (cffi:inc-pointer pos-from 1)
-     :do (setf (cffi:mem-ref pos-to :uint8) (cffi:mem-ref pos-from :uint8))))
-
-(defun zero? (position length)
-  (loop
-     :for i :below length
-     :for pos = position :then (cffi:inc-pointer pos 1)
-     :unless (eql (cffi:mem-ref pos :uint8) 0)
-     :do (return-from zero? nil))
-  t)
-
 (defun set-pointer (position value)
   (typecase value
     (function (set-pointer position (funcall value :this)))
