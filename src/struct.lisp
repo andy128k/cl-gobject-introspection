@@ -42,7 +42,7 @@
   (multiple-value-bind (constructor-call closure) (struct-closures info)
     (lambda (&optional name &rest args)
       (let ((this (cond 
-                    ((nullp name) (cffi:foreign-alloc 
+                    ((null name) (cffi:foreign-alloc 
                                    (struct-info-get-size info)))
                     ((cffi:pointerp name) name)
                     (t (funcall constructor-call name args)))))
