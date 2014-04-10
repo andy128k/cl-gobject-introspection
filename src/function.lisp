@@ -380,29 +380,61 @@
        :do (incf in-array-length-count))
     (values args-processor in-count out-count in-array-length-count)))
 
-(defun setup-giargs (args-processor in-count out-count args)
+(defstruct
+    (arg-state (:constructor make-arg-state (proc)))
+  proc giarg value)
+
+(defun make-args-state (args-processor)
+  (loop
+     :for proc :in args-processor
+     :collect (make-arg-state proc)))
+
+(defun check-args (args in-count name)
+  (assert (= in-count (length args))
+          (args)
+          "Should be ~a arguments in function ~a"
+	  in-count name))
+
+(defun set-args-state-input (args-state args)
+  (loop
+     :for i :upfrom 0
+     :for arg-state :in args-state
+     :for proc = (arg-state-proc arg-state)
+     :unless (or (eq (arg-processor-direction proc) :out)
+		 (arg-processor-for-array-length? proc))
+     :do (let ((arg (car args))
+	       (array-length (arg-processor-array-length proc)))
+	   (setf (arg-state-value arg-state) arg)
+	   (if array-length
+	       (setf (arg-state-value (nth array-length args-state))
+		     (length arg)))
+	   (setf args (cdr args)))))
+
+(defun setup-giargs (args-state in-count out-count)
   (let ((giargs-in (cffi:foreign-alloc '(:union argument) :count in-count))
 	(giargs-out (cffi:foreign-alloc '(:union argument) :count out-count))
 	(values-out (cffi:foreign-alloc '(:union argument) :count out-count)))
     (loop
        :with inp = giargs-in :and outp = giargs-out :and voutp = values-out
-       :for proc :in args-processor
-       :for arg = (if args (car args) nil)
+       :for arg-state :in args-state
+       :for proc = (arg-state-proc arg-state)
        :for dir = (arg-processor-direction proc)
+       :for value = (arg-state-value arg-state)
        :do (ecase dir
 	     (:in
-	      (funcall (arg-processor-setup proc) inp arg)
-	      (incf-giargs inp)
-	      (setf args (cdr args)))
+	      (setf (arg-state-giarg arg-state) inp)
+	      (funcall (arg-processor-setup proc) inp value)
+	      (incf-giargs inp))
 	     (:in-out
-	      (funcall (arg-processor-setup proc) voutp arg)
+	      (setf (arg-state-giarg arg-state) voutp)
+	      (funcall (arg-processor-setup proc) voutp value)
 	      (pointer->giarg inp voutp)
 	      (pointer->giarg outp voutp)
 	      (incf-giargs inp)
 	      (incf-giargs outp)
-	      (incf-giargs voutp)
-	      (setf args (cdr args)))
+	      (incf-giargs voutp))
 	     (:out
+	      (setf (arg-state-giarg arg-state) voutp)
 	      (pointer->giarg outp voutp)
 	      (incf-giargs outp)
 	      (incf-giargs voutp))))
@@ -411,119 +443,77 @@
 (defun return-giarg (info)
   (build-translator (callable-info-get-return-type info)))
 
-(cffi:defcfun g-function-info-invoke :boolean
-  (info info-ffi) 
-  (in-args :pointer) (n-in-args :int)
-  (out-args :pointer) (n-out-args :int)
-  (ret :pointer) (g-error :pointer))
-
-(defun make-out (res-trans giarg-res args-processor values-out)
-  (let* ((all-out-args
-	  (loop
-	     :with voutp = values-out
-	     :for proc in args-processor
-	     :for out? = (not (eq (arg-processor-direction proc) :in))
-	     :collect (if (and out? (null (arg-processor-array-length proc)))
-			  (funcall (arg-processor->value proc) voutp))
-	     :when out?
-	     :do (incf-giargs voutp)))
-	 (out-args
-	  (loop
-	     :with voutp = values-out
-	     :for proc in args-processor
-	     :for array-length = (arg-processor-array-length proc)
-	     :for out-arg in all-out-args
-	     :for out? = (not (eq (arg-processor-direction proc) :in))
-	     :when (and out? (not (arg-processor-for-array-length? proc)))
-	     :collect (if array-length
-			  (funcall (arg-processor->value proc)
-				   voutp (nth array-length all-out-args))
-			  out-arg)
-	     :when out?
-	     :do (incf-giargs voutp)))
-	 (return-val
-	  (let ((array-length (translator-array-length res-trans)))
-	    (if array-length
-		(funcall (translator->value res-trans) giarg-res
-			 (nth array-length all-out-args))
-		(funcall (translator->value res-trans) giarg-res)))))
-    (values (cons return-val out-args) all-out-args)))
-
-(defun check-args (args in-count name)
-  (assert (= in-count (length args))
-          (args) 
-          "Should be ~a arguments in function ~a" 
-	  in-count name))
-
-(defun add-array-length (args args-processor)
-  (let ((all-in-args (make-list (length args-processor))))
-    (loop
-       :for i :upfrom 0
-       :for arg-processor :in args-processor
-       :unless (or (eq (arg-processor-direction arg-processor) :out)
-		   (arg-processor-for-array-length? arg-processor))
-       :do (let ((arg (car args))
-		 (array-length (arg-processor-array-length arg-processor)))
-	     (setf (nth i all-in-args) arg)
-	     (if array-length
-		 (setf (nth array-length all-in-args) (length arg)))
-	     (setf args (cdr args))))
-    (loop
-       :for arg-processor :in args-processor
-       :for arg :in all-in-args
-       :unless (eq (arg-processor-direction arg-processor) :out)
-       :collect arg)))
-
-(defun clear-giargs (args-processor giargs-in giargs-out values-out
-		     args all-out-args)
+(defun make-out (res-trans giarg-res args-state)
   (loop
-     :with inp = giargs-in :and voutp = values-out
-     :for proc :in args-processor
+     :for arg-state :in args-state
+     :for proc = (arg-state-proc arg-state)
+     :when (and (not (eq (arg-processor-direction proc) :in))
+		(null (arg-processor-array-length proc)))
+     :do (let ((value (funcall (arg-processor->value proc)
+			       (arg-state-giarg arg-state))))
+	   (setf (arg-state-value arg-state) value)))
+  (loop
+     :for arg-state :in args-state
+     :for proc = (arg-state-proc arg-state)
+     :for array-length = (arg-processor-array-length proc)
+     :when (and array-length (not (eq (arg-processor-direction proc) :in)))
+     :do (let* ((length (arg-state-value (nth array-length args-state)))
+		(value (funcall (arg-processor->value proc)
+				(arg-state-giarg arg-state) length)))
+	   (setf (arg-state-value arg-state) value)))
+  (cons
+   (let ((array-length (translator-array-length res-trans)))
+     (if array-length
+	 (funcall (translator->value res-trans) giarg-res
+		  (arg-state-value (nth array-length args-state)))
+	 (funcall (translator->value res-trans) giarg-res)))
+   (loop
+      :for arg-state :in args-state
+      :for proc = (arg-state-proc arg-state)
+      :when (and (not (eq (arg-processor-direction proc) :in))
+		 (null (arg-processor-for-array-length? proc)))
+      :collect (arg-state-value arg-state))))
+
+(defun clear-giargs (args-state giargs-in giargs-out values-out)
+  (loop
+     :for arg-state :in args-state
+     :for proc = (arg-state-proc arg-state)
      :for dir = (arg-processor-direction proc)
      :for array-length = (arg-processor-array-length proc)
-     :do (ecase dir
-	   (:in
-	    (funcall (arg-processor-clear proc) inp
-		     (if array-length (nth array-length args)))
-	    (incf-giargs inp))
-	   (:in-out
-	    (funcall (arg-processor-clear proc) voutp
-		     (if array-length (nth array-length all-out-args)))
-	    (incf-giargs inp)
-	    (incf-giargs voutp))
-	   (:out
-	    (funcall (arg-processor-clear proc) voutp
-		     (if array-length (nth array-length all-out-args)))
-	    (incf-giargs voutp))))
+     :for giarg = (arg-state-giarg arg-state)
+     :for value = (arg-state-value arg-state)
+     :do (funcall (arg-processor-clear proc) giarg
+		  (if array-length (length value))))
   (cffi:foreign-free giargs-in)
   (cffi:foreign-free giargs-out)
   (cffi:foreign-free values-out))
+
+(cffi:defcfun g-function-info-invoke :boolean
+  (info info-ffi)
+  (in-args :pointer) (n-in-args :int)
+  (out-args :pointer) (n-out-args :int)
+  (ret :pointer) (g-error :pointer))
 
 (defun build-function (info &key return-raw-pointer)
   (multiple-value-bind (args-processor in-count out-count in-array-length-count)
       (get-args info)
     (let ((name (info-get-name info)))
       (lambda (&rest args)
-        (check-args args (- in-count in-array-length-count) name)
-	(if (> in-array-length-count 0)
-	    (setf args (add-array-length args args-processor)))
-        (values-list
-	 (multiple-value-bind (giargs-in giargs-out values-out)
-	     (setup-giargs args-processor in-count out-count args)
-	   (let ((res-trans (if return-raw-pointer
-				*raw-pointer-translator*
-				(return-giarg info)))
-		 (giarg-res (cffi:foreign-alloc '(:union argument)))
-		 all-out-args)
-	     (unwind-protect
-		  (with-gerror g-error
-		    (g-function-info-invoke info
-					    giargs-in in-count
-					    giargs-out out-count
-					    giarg-res g-error)
-		    (multiple-value-bind (out all-out)
-			(make-out res-trans giarg-res args-processor values-out)
-		      (setf all-out-args all-out)
-		      out))
-               (clear-giargs args-processor giargs-in giargs-out values-out
-			     args all-out-args)))))))))
+	(let ((args-state (make-args-state args-processor)))
+	  (check-args args (- in-count in-array-length-count) name)
+	  (set-args-state-input args-state args)
+	  (values-list
+	   (multiple-value-bind (giargs-in giargs-out values-out)
+	       (setup-giargs args-state in-count out-count)
+	     (let ((res-trans (if return-raw-pointer
+				  *raw-pointer-translator*
+				  (return-giarg info)))
+		   (giarg-res (cffi:foreign-alloc '(:union argument))))
+	       (unwind-protect
+		    (with-gerror g-error
+		      (g-function-info-invoke info
+					      giargs-in in-count
+					      giargs-out out-count
+					      giarg-res g-error)
+		      (make-out res-trans giarg-res args-state))
+		 (clear-giargs args-state giargs-in giargs-out values-out))))))))))
