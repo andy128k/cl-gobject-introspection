@@ -100,6 +100,15 @@
       "Test the null-pointer to struct return value"
       (is (eq nil (call *glib* 'main-current-source))))
 
+(test (struct-allocate :depends-on (and struct-method struct-field))
+      "Test the struct allocator"
+      (is (equal (list 0 0 100)
+		 (let ((poll-fd (call *glib* "PollFD" :allocate)))
+		   (list (call poll-fd :field 'fd)
+			 (call poll-fd :field 'events)
+			 (progn (call poll-fd :set-field! 'fd 100)
+				(call poll-fd :field 'fd)))))))
+
 (def-suite object :description "Test the object" :in gir)
 
 (in-suite object)
