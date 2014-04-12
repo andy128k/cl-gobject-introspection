@@ -40,13 +40,15 @@
 
 (defun build-struct (info)
   (multiple-value-bind (constructor-call closure) (struct-closures info)
-    (lambda (&optional name &rest args)
-      (let ((this (cond 
-                    ((null name) (cffi:foreign-alloc 
-                                   (struct-info-get-size info)))
-                    ((cffi:pointerp name) name)
-                    (t (funcall constructor-call name args)))))
-	(funcall closure this)))))
+    (let ((size (struct-info-get-size info)))
+      (lambda (&optional name &rest args)
+	(let ((this (cond
+		      ((eq name :allocate)
+		       (cffi:foreign-alloc :int8 :initial-element 0
+					   :count size))
+		      ((cffi:pointerp name) name)
+		      (t (funcall constructor-call name args)))))
+	  (funcall closure this))))))
 
 (defun build-struct-ptr (info ptr)
   (multiple-value-bind (constructor-call closure) (struct-closures info)
