@@ -41,7 +41,7 @@
 (defun build-struct (info)
   (multiple-value-bind (constructor-call closure) (struct-closures info)
     (let ((size (struct-info-get-size info)))
-      (lambda (&optional name &rest args)
+      (lambda (name &rest args)
 	(let ((this (cond
 		      ((eq name :allocate)
 		       (cffi:foreign-alloc :int8 :initial-element 0
