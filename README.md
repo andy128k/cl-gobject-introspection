@@ -18,12 +18,12 @@ Interface with the GObjectIntrospection is based on repositories. Main
 function is
 
 ```racket
-(ffi repository-name [version]) -> function
+(ffi repository-name [version]) -> repository
   repository-name : string                 
   version : string = nil                   
 ```
 
-Returns interface to repository with name `repository-name`
+Returns interface to repository with name `repository-name`. In current implementation repository is function.
 
 # 2. Using interface objects
 
@@ -35,15 +35,19 @@ this may change.
 # 3. Get FFI element
 
 ```racket
-(repository func-name func-arg ...) -> any          
+(call repository func-name func-arg ...) -> any          
+  repositry : repository
   func-name : (or string symbol)                    
   func-arg : any                                    
-(repository const-name) -> any                      
+(call repository const-name) -> any                      
+  repositry : repository
   const-name : (or string symbol)                   
-(repository enum-name enum-value-name) -> integer   
+(call repository enum-name enum-value-name) -> integer   
+  repositry : repository
   enum-name : (or string symbol)                    
   enum-value-name : (or string symbol)              
-(repository class-name constructor-name) -> function
+(call repository class-name constructor-name) -> function
+  repositry : repository
   class-name : (or string symbol)                   
   constructor-name : (or string symbol)             
 ```
