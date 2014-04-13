@@ -67,9 +67,28 @@
 		     (otherwise 'base-info))
 		   :ptr pointer)))
 
-(cffi:defcfun (info-unref "g_base_info_unref") :void
-  (info info-ffi))
-(export 'info-unref)
+(cffi:defcfun g-base-info-unref :void
+  (info :pointer))
+
+(defun info-ffi-finalize (info)
+  (if info
+      (let* ((pointer (slot-value info 'ptr))
+	     (addr (cffi:pointer-address pointer)))
+	(tg:finalize pointer (lambda ()
+			       (g-base-info-unref (cffi:make-pointer addr))))))
+  info)
+
+(defmacro def-info-func (names &body args)
+  (let* ((lisp-name (if (listp names) (car names) names))
+	 (foreign-name
+	  (if (listp names) (cadr names)
+	      (make-symbol (concatenate 'string "G-" (symbol-name lisp-name)))))
+	 (real-args (if (stringp (car args)) (cdr args) args))
+	 (arg-names (mapcar #'first real-args)))
+    `(progn
+       (cffi:defcfun ,foreign-name info-ffi ,@args)
+       (defun ,lisp-name ,arg-names
+	 (info-ffi-finalize (,foreign-name ,@arg-names))))))
 
 (defun info-get-type (info)
   (g-base-info-get-type (info-ptr info)))

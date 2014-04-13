@@ -118,7 +118,7 @@
    #:info-is-deprecated
    #:union-info-find-method
    #:callable-info-get-caller-owns
-   #:info-unref #:function-info-get-flags
+   #:function-info-get-flags
    #:field-info-get-flags #:typelib-free
    #:struct-info-is-foreign
    #:arg-info-is-return-value
