@@ -35,6 +35,11 @@
                              (gir.field:set this 
                                             (funcall find-field name) 
                                             value)))
+			  (:free
+			   (if (cffi:null-pointer-p this)
+			       (error "Double free")
+			       (progn (cffi:foreign-free this)
+				      (setf this (cffi:null-pointer)))))
                           (t (funcall call name (cons this args)))))))))
     (values constructor-call closure)))
 
