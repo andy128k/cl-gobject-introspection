@@ -20,3 +20,9 @@
      :unless (eql (cffi:mem-ref pos :uint8) 0)
      :do (return-from zero? nil))
   t)
+
+(defun allocate-finalize (pointer)
+  (let ((addr (cffi:pointer-address pointer)))
+    (tg:finalize pointer (lambda ()
+			   (cffi:foreign-free (cffi:make-pointer addr)))))
+  pointer)

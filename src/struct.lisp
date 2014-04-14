@@ -44,8 +44,9 @@
       (lambda (name &rest args)
 	(let ((this (cond
 		      ((eq name :allocate)
-		       (cffi:foreign-alloc :int8 :initial-element 0
-					   :count size))
+		       (allocate-finalize
+			(cffi:foreign-alloc :int8 :initial-element 0
+					    :count size)))
 		      ((cffi:pointerp name) name)
 		      (t (funcall constructor-call name args)))))
 	  (funcall closure this))))))
