@@ -73,7 +73,7 @@
 (export 'repository-is-registered)
 
 
-(cffi:defcfun (repository-find-by-name "g_irepository_find_by_name") info-ffi
+(def-info-func (repository-find-by-name g-irepository-find-by-name)
   (repository repository-type)
   (namespace :string)
   (name :string))
@@ -105,7 +105,7 @@
 (export 'repository-get-loaded-namespaces)
 
 
-(cffi:defcfun (repository-find-by-gtype "g_irepository_find_by_gtype") info-ffi
+(def-info-func (repository-find-by-gtype g-irepository-find-by-gtype)
   (repository repository-type)
   (g-type :ulong))
 (export 'repository-find-by-gtype)
@@ -122,7 +122,8 @@
   (defun repository-get-infos (repository namespace)
     (let ((n (g-irepository-get-n-infos repository namespace)))
       (iter (for i from 0 below n)
-	    (collect (g-irepository-get-info repository namespace i)))))
+	    (collect (info-ffi-finalize
+		      (g-irepository-get-info repository namespace i))))))
 
   (export 'repository-get-infos))
 
@@ -163,7 +164,7 @@ void gi_cclosure_marshal_generic (GClosure       *closure,
 ;;; callable-info
 ;;;
 
-(cffi:defcfun (callable-info-get-return-type "g_callable_info_get_return_type") info-ffi
+(def-info-func callable-info-get-return-type
   (callable-info info-ffi))
 (export 'callable-info-get-return-type)
 
@@ -239,7 +240,7 @@ void gi_cclosure_marshal_generic (GClosure       *closure,
   (arg-info info-ffi))
 (export 'arg-info-get-destroy)
 
-(cffi:defcfun (arg-info-get-type "g_arg_info_get_type") info-ffi
+(def-info-func arg-info-get-type
   (arg-info info-ffi))
 (export 'arg-info-get-type)
 
@@ -293,12 +294,12 @@ void gi_cclosure_marshal_generic (GClosure       *closure,
   (type-info info-ffi))
 (export 'type-info-get-tag)
 
-(cffi:defcfun (type-info-get-param-type "g_type_info_get_param_type") info-ffi
+(def-info-func type-info-get-param-type
   (type-info info-ffi)
   (n :int))
 (export 'type-info-get-param-type)
 
-(cffi:defcfun (type-info-get-interface "g_type_info_get_interface") info-ffi
+(def-info-func type-info-get-interface
   (type-info info-ffi))
 (export 'type-info-get-interface)
 
@@ -362,7 +363,7 @@ void gi_cclosure_marshal_generic (GClosure       *closure,
   (field-info info-ffi))
 (export 'field-info-get-offset)
 
-(cffi:defcfun (field-info-get-type "g_field_info_get_type") info-ffi
+(def-info-func field-info-get-type
   (field-info info-ffi))
 (export 'field-info-get-type)
 
@@ -393,14 +394,14 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
   (union-info info-ffi))
 (export 'union-info-get-discriminator-offset)
 
-(cffi:defcfun (union-info-get-discriminator-type "g_union_info_get_discriminator_type") info-ffi
+(def-info-func union-info-get-discriminator-type
   (union-info info-ffi))
 (export 'union-info-get-discriminator-type)
 
 (define-collection-getter union-info-get-discriminators
     (g-union-info-get-n-fields :already-defined) g-union-info-get-discriminator)
 
-(cffi:defcfun (union-info-find-method "g_union_info_find_method") info-ffi
+(def-info-func union-info-find-method
   (union-info info-ffi)
   (name :string))
 (export 'union-info-find-method)
@@ -423,7 +424,7 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 (define-collection-getter struct-info-get-methods
     g-struct-info-get-n-methods g-struct-info-get-method)
 
-(cffi:defcfun (struct-info-find-method "g_struct_info_find_method") info-ffi
+(def-info-func struct-info-find-method
   (struct-info info-ffi)
   (name :string))
 (export 'struct-info-find-method)
@@ -491,7 +492,7 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
   (object-info info-ffi))
 (export 'object-info-get-abstract)
 
-(cffi:defcfun (object-info-get-parent "g_object_info_get_parent") info-ffi
+(def-info-func object-info-get-parent
   (object-info info-ffi))
 (export 'object-info-get-parent)
 
@@ -507,7 +508,7 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 (define-collection-getter object-info-get-methods
     g-object-info-get-n-methods g-object-info-get-method)
 
-(cffi:defcfun (object-info-find-method "g_object_info_find_method") info-ffi
+(def-info-func object-info-find-method
   (object-info info-ffi)
   (name :string))
 (export 'object-info-find-method)
@@ -518,7 +519,7 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 (define-collection-getter object-info-get-vfuncs
     g-object-info-get-n-vfuncs g-object-info-get-vfunc)
 
-(cffi:defcfun (object-info-find-vfunc "g_object_info_find_vfunc") info-ffi
+(def-info-func object-info-find-vfunc
   (object-info info-ffi)
   (name :string))
 (export 'object-info-find-vfunc)
@@ -526,7 +527,7 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 (define-collection-getter object-info-get-constants
     g-object-info-get-n-constants g-object-info-get-constant)
 
-(cffi:defcfun (object-info-get-class-struct "g_object_info_get_class_struct") info-ffi
+(def-info-func object-info-get-class-struct
   (object-info info-ffi))
 (export 'object-info-get-class-struct)
 
@@ -543,7 +544,7 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 (define-collection-getter interface-info-get-methods
     g-interface-info-get-n-methods g-interface-info-get-method)
 
-(cffi:defcfun (interface-info-find-method "g_interface_info_find_method") info-ffi
+(def-info-func interface-info-find-method
   (interface-info info-ffi)
   (name :string))
 (export 'interface-info-find-method)
@@ -554,7 +555,7 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 (define-collection-getter interface-info-get-vfuncs
     g-interface-info-get-n-vfuncs g-interface-info-get-vfunc)
 
-(cffi:defcfun (interface-info-find-vfunc "g_interface_info_find_vfunc") info-ffi
+(def-info-func interface-info-find-vfunc
   (interface-info info-ffi)
   (name :string))
 (export 'interface-info-find-vfunc)
@@ -562,7 +563,7 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 (define-collection-getter interface-info-get-constants
     g-interface-info-get-n-constants g-interface-info-get-constant)
 
-(cffi:defcfun (interface-info-get-class-struct "g_interface_info_get_iface_struct") info-ffi
+(def-info-func (interface-info-get-class-struct g-interface-info-get-iface-struct)
   (interface-info info-ffi))
 (export 'interface-info-get-iface-struct)
 
@@ -586,7 +587,7 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
   (property-info info-ffi))
 (export 'property-info-get-flags)
 
-(cffi:defcfun (property-info-get-type "g_property_info_get_type") info-ffi
+(def-info-func property-info-get-type
   (property-info info-ffi))
 (export 'property-info-get-type)
 
@@ -608,7 +609,7 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
   (signal-info info-ffi))
 (export 'signal-info-get-flags)
 
-(cffi:defcfun (signal-info-get-class-closure "g_signal_info_get_class_closure") info-ffi
+(def-info-func signal-info-get-class-closure
   (signal-info info-ffi))
 (export 'signal-info-get-class-closure)
 
@@ -634,11 +635,11 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
   (vfunc-info info-ffi))
 (export 'vfunc-info-get-offset)
 
-(cffi:defcfun (vfunc-info-get-signal "g_vfunc_info_get_signal") info-ffi
+(def-info-func vfunc-info-get-signal
   (vfunc-info info-ffi))
 (export 'vfunc-info-get-signal)
 
-(cffi:defcfun (vfunc-info-get-invoker "g_vfunc_info_get_invoker") info-ffi
+(def-info-func vfunc-info-get-invoker
   (vfunc-info info-ffi))
 (export 'vfunc-info-get-invoker)
 
@@ -646,7 +647,7 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 ;;; constant-info
 ;;;
 
-(cffi:defcfun (constant-info-get-type "g_constant_info_get_type") info-ffi
+(def-info-func constant-info-get-type
   (constant-info info-ffi))
 (export 'constant-info-get-type)
 
@@ -684,11 +685,11 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
   (function-info info-ffi))
 (export 'function-info-get-flags)
 
-(cffi:defcfun (function-info-get-property "g_function_info_get_property") info-ffi
+(def-info-func function-info-get-property
   (function-info info-ffi))
 (export 'function-info-get-property)
 
-(cffi:defcfun (function-info-get-vfunc "g_function_info_get_vfunc") info-ffi
+(def-info-func function-info-get-vfunc
   (function-info info-ffi))
 (export 'function-info-get-vfunc)
 

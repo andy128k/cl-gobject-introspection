@@ -108,7 +108,7 @@
        (defun ,name (info)
 	 (let ((n (,get-count-name info)))
 	   (iter (for i from 0 below n)
-		 (collect (,get-item info i)))))
+		 (collect (info-ffi-finalize (,get-item info i))))))
        (export ',name))))
 
 
