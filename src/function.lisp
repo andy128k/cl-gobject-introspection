@@ -503,10 +503,13 @@
 (defun build-function (info &key return-raw-pointer)
   (multiple-value-bind (args-processor in-count out-count in-array-length-count)
       (get-args info)
-    (let ((name (info-get-name info))
-	  (res-trans (if return-raw-pointer
-			 *raw-pointer-translator*
-			 (return-giarg info))))
+    (let* ((name (info-get-name info))
+	   (res-trans (if return-raw-pointer
+			  *raw-pointer-translator*
+			  (return-giarg info)))
+	   (res-clear (ecase (callable-info-get-caller-owns info)
+			(:everything (translator-free res-trans))
+			((:nothing :container) #'dont-free))))
       (lambda (&rest args)
 	(let ((args-state (make-args-state args-processor))
 	      (giarg-res (cffi:foreign-alloc '(:union argument))))
@@ -522,4 +525,6 @@
 					    giargs-out out-count
 					    giarg-res g-error)
 		    (make-out res-trans giarg-res args-state))
-	       (clear-giargs args-state giargs-in giargs-out values-out)))))))))
+	       (clear-giargs args-state giargs-in giargs-out values-out)
+	       (funcall res-clear giarg-res)
+	       (cffi:foreign-free giarg-res)))))))))
