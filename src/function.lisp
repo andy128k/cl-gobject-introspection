@@ -416,35 +416,31 @@
 		     (length arg)))
 	   (setf args (cdr args)))))
 
-(defun setup-giargs (args-state in-count out-count)
-  (let ((giargs-in (cffi:foreign-alloc '(:union argument) :count in-count))
-	(giargs-out (cffi:foreign-alloc '(:union argument) :count out-count))
-	(values-out (cffi:foreign-alloc '(:union argument) :count out-count)))
-    (loop
-       :with inp = giargs-in :and outp = giargs-out :and voutp = values-out
-       :for arg-state :in args-state
-       :for proc = (arg-state-proc arg-state)
-       :for dir = (arg-processor-direction proc)
-       :for value = (arg-state-value arg-state)
-       :do (ecase dir
-	     (:in
-	      (setf (arg-state-giarg arg-state) inp)
-	      (funcall (arg-processor-setup proc) inp value)
-	      (incf-giargs inp))
-	     (:in-out
-	      (setf (arg-state-giarg arg-state) voutp)
-	      (funcall (arg-processor-setup proc) voutp value)
-	      (pointer->giarg inp voutp)
-	      (pointer->giarg outp voutp)
-	      (incf-giargs inp)
-	      (incf-giargs outp)
-	      (incf-giargs voutp))
-	     (:out
-	      (setf (arg-state-giarg arg-state) voutp)
-	      (pointer->giarg outp voutp)
-	      (incf-giargs outp)
-	      (incf-giargs voutp))))
-    (values giargs-in giargs-out values-out)))
+(defun setup-giargs (args-state giargs-in giargs-out values-out)
+  (loop
+     :with inp = giargs-in :and outp = giargs-out :and voutp = values-out
+     :for arg-state :in args-state
+     :for proc = (arg-state-proc arg-state)
+     :for dir = (arg-processor-direction proc)
+     :for value = (arg-state-value arg-state)
+     :do (ecase dir
+	   (:in
+	    (setf (arg-state-giarg arg-state) inp)
+	    (funcall (arg-processor-setup proc) inp value)
+	    (incf-giargs inp))
+	   (:in-out
+	    (setf (arg-state-giarg arg-state) voutp)
+	    (funcall (arg-processor-setup proc) voutp value)
+	    (pointer->giarg inp voutp)
+	    (pointer->giarg outp voutp)
+	    (incf-giargs inp)
+	    (incf-giargs outp)
+	    (incf-giargs voutp))
+	   (:out
+	    (setf (arg-state-giarg arg-state) voutp)
+	    (pointer->giarg outp voutp)
+	    (incf-giargs outp)
+	    (incf-giargs voutp)))))
 
 (defun return-giarg (info)
   (build-translator (callable-info-get-return-type info)))
@@ -480,7 +476,7 @@
 		 (null (arg-processor-for-array-length? proc)))
       :collect (arg-state-value arg-state))))
 
-(defun clear-giargs (args-state giargs-in giargs-out values-out)
+(defun clear-giargs (args-state)
   (loop
      :for arg-state :in args-state
      :for proc = (arg-state-proc arg-state)
@@ -489,10 +485,7 @@
      :for giarg = (arg-state-giarg arg-state)
      :for value = (arg-state-value arg-state)
      :do (funcall (arg-processor-clear proc) giarg
-		  (if array-length (length value))))
-  (cffi:foreign-free giargs-in)
-  (cffi:foreign-free giargs-out)
-  (cffi:foreign-free values-out))
+		  (if array-length (length value)))))
 
 (cffi:defcfun g-function-info-invoke :boolean
   (info info-ffi)
@@ -511,13 +504,16 @@
 			(:everything (translator-free res-trans))
 			((:nothing :container) #'dont-free))))
       (lambda (&rest args)
-	(let ((args-state (make-args-state args-processor))
-	      (giarg-res (cffi:foreign-alloc '(:union argument))))
+	(let ((args-state (make-args-state args-processor)))
 	  (check-args args (- in-count in-array-length-count) name)
 	  (set-args-state-input args-state args)
 	  (values-list
-	   (multiple-value-bind (giargs-in giargs-out values-out)
-	       (setup-giargs args-state in-count out-count)
+	   (cffi:with-foreign-objects
+	       ((giargs-in '(:union argument) in-count)
+		(giargs-out '(:union argument) out-count)
+		(values-out '(:union argument) out-count)
+		(giarg-res '(:union argument)))
+	     (setup-giargs args-state giargs-in giargs-out values-out)
 	     (unwind-protect
 		  (with-gerror g-error
 		    (g-function-info-invoke info
@@ -525,6 +521,5 @@
 					    giargs-out out-count
 					    giarg-res g-error)
 		    (make-out res-trans giarg-res args-state))
-	       (clear-giargs args-state giargs-in giargs-out values-out)
-	       (funcall res-clear giarg-res)
-	       (cffi:foreign-free giarg-res)))))))))
+	       (clear-giargs args-state)
+	       (funcall res-clear giarg-res)))))))))
