@@ -503,23 +503,23 @@
 (defun build-function (info &key return-raw-pointer)
   (multiple-value-bind (args-processor in-count out-count in-array-length-count)
       (get-args info)
-    (let ((name (info-get-name info)))
+    (let ((name (info-get-name info))
+	  (res-trans (if return-raw-pointer
+			 *raw-pointer-translator*
+			 (return-giarg info))))
       (lambda (&rest args)
-	(let ((args-state (make-args-state args-processor)))
+	(let ((args-state (make-args-state args-processor))
+	      (giarg-res (cffi:foreign-alloc '(:union argument))))
 	  (check-args args (- in-count in-array-length-count) name)
 	  (set-args-state-input args-state args)
 	  (values-list
 	   (multiple-value-bind (giargs-in giargs-out values-out)
 	       (setup-giargs args-state in-count out-count)
-	     (let ((res-trans (if return-raw-pointer
-				  *raw-pointer-translator*
-				  (return-giarg info)))
-		   (giarg-res (cffi:foreign-alloc '(:union argument))))
-	       (unwind-protect
-		    (with-gerror g-error
-		      (g-function-info-invoke info
-					      giargs-in in-count
-					      giargs-out out-count
-					      giarg-res g-error)
-		      (make-out res-trans giarg-res args-state))
-		 (clear-giargs args-state giargs-in giargs-out values-out))))))))))
+	     (unwind-protect
+		  (with-gerror g-error
+		    (g-function-info-invoke info
+					    giargs-in in-count
+					    giargs-out out-count
+					    giarg-res g-error)
+		    (make-out res-trans giarg-res args-state))
+	       (clear-giargs args-state giargs-in giargs-out values-out)))))))))
