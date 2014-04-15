@@ -161,7 +161,12 @@
 		    (cffi:mem-ref position :uint))))))
          (free
 	  (if pointer?
-	      #'dont-free
+	      (typecase interface
+		(object-info
+		 (lambda (position)
+		   (let ((this (get-pointer position)))
+		     (object-ref-sink this))))
+		(t #'dont-free))
 	      (typecase interface
 		((or struct-info union-info)
 		 (lambda (position) (declare (ignore position)) t))
