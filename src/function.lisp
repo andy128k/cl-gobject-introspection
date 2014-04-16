@@ -32,7 +32,7 @@
 
 (defun set-pointer (position value)
   (typecase value
-    (function (set-pointer position (funcall value :this)))
+    (function (set-pointer position (nget value :this)))
     (t (setf (cffi:mem-ref position :pointer) value))))
 
 (defun get-pointer (position &optional length)
@@ -131,7 +131,7 @@
 		((or union-info struct-info)
 		 (lambda (position value)
 		   (let ((pointer (typecase value
-				    (function (funcall value :this))
+				    (function (nget value :this))
 				    (t value))))
 		     (copy-memory position pointer size))))
 		(t

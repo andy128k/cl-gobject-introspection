@@ -30,23 +30,27 @@
                                 (error "Bad FFI field name ~a" name)))))
          (closure (lambda (this)
                     (let ((signals (list nil)))
-                      (lambda (name &rest args)
+                      (lambda (name)
                         (case name
                           (:this this)
                           (:signals signals)
                           (:field
-                           (destructuring-bind (name) args
+			   (lambda (name)
                              (gir.field:get this (funcall find-field name))))
                           (:set-field!
-                           (destructuring-bind (name value) args
+			   (lambda (name value)
                              (gir.field:set this 
                                             (funcall find-field name) 
                                             value)))
                           (:set-properties!
-                           (set-properties! this args))
+			   (lambda (&rest args)
+			     (set-properties! this args)))
                           (:properties
-                           (get-properties this args))
-                          (t (funcall call name (cons this args)))))))))
+			   (lambda (&rest args)
+			     (get-properties this args)))
+                          (t
+			   (lambda (&rest args)
+			     (funcall call name (cons this args))))))))))
     closure))
 
 ;; wiil be defined later
@@ -66,7 +70,7 @@
 
 (defun build-object (info)
   (let ((closure (closures info)))
-    (lambda (name &rest args)
+    (lambda (name)
       (if (cffi:pointerp name)
 	  (funcall closure name)
 	  (let* ((function-info (find-ffi-method info (c-name name)))
@@ -76,11 +80,12 @@
 		(error "Bad FFI constructor/function name ~a" name))
 	    (cond
 	      ((constructor? flags)
-	       (let ((this (apply (build-function function-info
-						  :return-raw-pointer t) args)))
-		 (funcall closure (object-ref-sink this))))
+	       (lambda (&rest args)
+		 (let ((this (apply (build-function function-info
+						    :return-raw-pointer t) args)))
+		   (funcall closure (object-ref-sink this)))))
 	      ((class-function? flags)
-	       (apply (build-function function-info) args))
+	       (build-function function-info))
 	      (t
 	       (error "~a is not constructor or class function" name))))))))
 
@@ -102,7 +107,7 @@
   (:simple-parser pobject))
 
 (defmethod cffi:translate-to-foreign (object (type pobject))
-  (call object :this))
+  (nget object :this))
 
 (defmethod cffi:translate-from-foreign (pointer (type pobject))
   (gobject (gtype pointer) pointer))

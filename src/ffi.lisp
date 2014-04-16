@@ -1,21 +1,26 @@
 (in-package :gir)
 
-(defun build-interface (info args)
+(defun build-interface (info)
   (etypecase info
-    (function-info (apply (build-function info) args))
-    (object-info (apply (build-object info) args))
-    (struct-info (apply (build-struct info) args))
-    (enum-info (apply (build-enum info) args))
+    (function-info (build-function info))
+    (object-info (build-object info))
+    (struct-info (build-struct info))
+    (enum-info (build-enum info))
     (constant-info (constant-info-get-value info))))
 
 (defun ffi (namespace &optional (version (cffi:null-pointer)))
   (repository-require nil namespace version)
-  (lambda (name &rest rest)
+  (lambda (name)
     (let ((info (repository-find-by-name nil namespace (c-name name))))
       (if info
-          (build-interface info rest)
+          (build-interface info)
           (warn "No such FFI name ~a" name)))))
 
-(defun call (object &rest args)
-  (apply object args))
-      
+(defun nget (namespace &rest args)
+  (dolist (arg args namespace)
+    (setf namespace (funcall namespace arg))))
+
+(defmacro invoke (func &rest args)
+  (if (listp func)
+  `(funcall (nget ,@func) ,@args)
+  `(funcall ,func ,@args)))
