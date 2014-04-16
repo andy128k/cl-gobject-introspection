@@ -9,7 +9,7 @@
 
 (defsystem cl-gobject-introspection
   :description "Binding to GObjectIntrospection"
-  :version "0.2"
+  :version "0.3"
   :author "Andrey Kutejko <andy128k@gmail.com>, Roman Klochkov <kalimehtar@mail.ru>"
   :licence "BSD"
   :depends-on (:cffi :iterate :trivial-garbage)
