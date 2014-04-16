@@ -138,5 +138,6 @@
    #:interface-info-get-constants
 
    #:ffi
-   #:call))
+   #:nget
+   #:invoke))
 

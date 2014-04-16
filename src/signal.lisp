@@ -73,7 +73,7 @@
 
 (defun connect (g-object signal c-handler &key after swapped)
   (let* ((object-ptr (if (functionp g-object)
-                         (call g-object :this)
+                         (nget g-object :this)
                          g-object))
          (str-signal (string-downcase signal))
          (c-handler (cond 

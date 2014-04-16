@@ -23,37 +23,42 @@
                                 (error "Bad FFI field name ~a" name)))))
          (closure (lambda (this)
                     (let ((signals (list nil)))
-                      (lambda (name &rest args)
+                      (lambda (name)
                         (case name
                           (:this this)
                           (:signals signals)
                           (:field
-                           (destructuring-bind (name) args
+                           (lambda (name)
                              (gir.field:get this (funcall find-field name))))
                           (:set-field!
-                           (destructuring-bind (name value) args
+                           (lambda (name value)
                              (gir.field:set this 
                                             (funcall find-field name) 
                                             value)))
 			  (:free
-			   (if (cffi:null-pointer-p this)
-			       (error "Double free")
-			       (progn (cffi:foreign-free this)
-				      (setf this (cffi:null-pointer)))))
-                          (t (funcall call name (cons this args)))))))))
+			   (lambda ()
+			     (if (cffi:null-pointer-p this)
+				 (error "Double free")
+				 (progn (cffi:foreign-free this)
+					(setf this (cffi:null-pointer))))))
+                          (t
+			   (lambda (&rest args)
+			     (funcall call name (cons this args))))))))))
     (values constructor-call closure)))
 
 (defun build-struct (info)
   (multiple-value-bind (constructor-call closure) (struct-closures info)
     (let ((size (struct-info-get-size info)))
-      (lambda (name &rest args)
-	(let ((this (cond
-		      ((eq name :allocate)
-		       (cffi:foreign-alloc :int8 :initial-element 0
-					   :count size))
-		      ((cffi:pointerp name) name)
-		      (t (funcall constructor-call name args)))))
-	  (funcall closure this))))))
+      (lambda (name)
+	(cond
+	  ((eq name :allocate)
+	   (lambda ()
+	     (let ((this (cffi:foreign-alloc :int8 :initial-element 0
+					     :count size)))
+	       (funcall closure this))))
+	  ((cffi:pointerp name) (funcall closure name))
+	  (t (lambda (&rest args)
+	       (funcall closure (funcall constructor-call name args)))))))))
 
 (defun build-struct-ptr (info ptr)
   (multiple-value-bind (constructor-call closure) (struct-closures info)
