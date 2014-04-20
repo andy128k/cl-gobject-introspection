@@ -139,5 +139,8 @@
 
    #:ffi
    #:nget
-   #:invoke))
-
+   #:invoke
+   #:field
+   #:property
+   #:allocate-struct
+   #:free-struct))

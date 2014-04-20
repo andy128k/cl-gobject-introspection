@@ -18,6 +18,7 @@
   :perform (test-op (o c) (uiop:symbol-call :gir-test :main))
   :components ((:file "src/package")
                (:file "src/init")
+               (:file "src/ffi")
                (:file "src/typelib")
                (:file "src/types")
                (:file "src/baseinfo")
@@ -30,5 +31,4 @@
                (:file "src/properties")
                (:file "src/enum")
                (:file "src/struct")
-               (:file "src/ffi")
 	       (:file "src/utilities")))
