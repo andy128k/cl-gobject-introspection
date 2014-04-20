@@ -60,7 +60,7 @@
 
 (test (struct-constructor :depends-on function)
       "Test the struct constructor"
-      (is (eql 'function
+      (is (eql 'gir::struct
 	       (progn
 		 (setf *entry* (invoke (*gtk* "TargetEntry" 'new)
 				       *entry-target* *entry-flags1* 0))
@@ -68,15 +68,14 @@
 
 (test (struct-this :depends-on struct-constructor)
       "Test the struct this pointer"
-      (is-true (pointerp (nget *entry* :this))))
+      (is-true (pointerp (gir::struct-this *entry*))))
 
 (test (struct-field :depends-on struct-constructor)
       "Test the struct field get/set"
-      (is (equal *entry-target* (invoke (*entry* :field) 'target)))
-      (is (= *entry-flags1* (invoke (*entry* :field) 'flags)))
-      (is (= *entry-flags2* (progn (invoke (*entry* :set-field!)
-					   'flags *entry-flags2*)
-				   (invoke (*entry* :field) 'flags)))))
+      (is (equal *entry-target* (field *entry* 'target)))
+      (is (= *entry-flags1* (field *entry* 'flags)))
+      (is (= *entry-flags2* (progn (setf (field *entry* 'flags) *entry-flags2*)
+				   (field *entry* 'flags)))))
 
 (test (struct-method :depends-on struct-this)
       "Test the struct method"
@@ -89,12 +88,13 @@
 
 (test (struct-foreign-obj :depends-on (and struct-method struct-field))
       "Test the struct foreign object support"
-      (is-true (progn (setf *entry-this* (nget *entry* :this))
+      (is-true (progn (setf *entry-this* (gir::struct-this *entry*))
 		      (pointerp *entry-this*)))
       (is (equal (list *entry-target* *entry-flags2*)
-		 (let ((entry (invoke (*gtk* "TargetEntry") *entry-this*)))
-		   (list (invoke (entry :field) 'target)
-			 (invoke (entry :field) 'flags))))))
+		 (let ((entry (gir::build-struct-ptr (nget *gtk* "TargetEntry")
+						     *entry-this*)))
+		   (list (field entry 'target)
+			 (field entry 'flags))))))
 
 (test (struct-null :depends-on struct-constructor)
       "Test the null-pointer to struct return value"
@@ -103,13 +103,13 @@
 (test (struct-allocate/free :depends-on (and struct-method struct-field))
       "Test the struct allocate/free"
       (is (equal (list 0 0 100)
-		 (let ((poll-fd (invoke (*glib* "PollFD" :allocate))))
-		   (list (invoke (poll-fd :field) 'fd)
-			 (invoke (poll-fd :field) 'events)
-			 (progn (invoke (poll-fd :set-field!) 'fd 100)
-				(invoke (poll-fd :field) 'fd))))))
-      (is-true (let ((poll-fd (invoke (*glib* "PollFD" :allocate))))
-		 (invoke (poll-fd :free))
+		 (let ((poll-fd (allocate-struct (nget *glib* "PollFD"))))
+		   (list (field poll-fd 'fd)
+			 (field poll-fd 'events)
+			 (progn (setf (field poll-fd 'fd) 100)
+				(field poll-fd 'fd))))))
+      (is-true (let ((poll-fd (allocate-struct (nget *glib* "PollFD"))))
+		 (free-struct poll-fd)
 		 t)))
 
 (def-suite object :description "Test the object" :in gir)

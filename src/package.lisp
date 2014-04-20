@@ -141,4 +141,6 @@
    #:nget
    #:invoke
    #:field
-   #:property))
+   #:property
+   #:allocate-struct
+   #:free-struct))

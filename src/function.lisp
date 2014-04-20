@@ -32,7 +32,7 @@
 
 (defun any->pointer (value)
   (typecase value
-    (function (nget value :this))
+    (struct (struct-this value))
     (object (object-this value))
     (t value)))
 
@@ -146,7 +146,7 @@
 		    (lambda (position)
 		      (let ((this (get-pointer position)))
 			(if (cffi:null-pointer-p this) nil
-			    (funcall class this))))))
+			    (build-struct-ptr class this))))))
 		 (object-info
 		  (let ((class (build-object interface)))
 		    (lambda (position)
@@ -158,7 +158,7 @@
 		 (struct-info
 		  (let ((struct-class (build-struct interface)))
 		    (lambda (position)
-		      (funcall struct-class position))))
+		      (build-struct-ptr struct-class position))))
 		 (union-info
 		  (lambda (position) position))
 		 (t
