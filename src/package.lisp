@@ -139,5 +139,6 @@
 
    #:ffi
    #:nget
-   #:invoke))
-
+   #:invoke
+   #:field
+   #:property))

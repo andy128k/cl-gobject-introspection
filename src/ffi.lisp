@@ -16,9 +16,14 @@
           (build-interface info)
           (warn "No such FFI name ~a" name)))))
 
-(defun nget (namespace &rest args)
-  (dolist (arg args namespace)
-    (setf namespace (funcall namespace arg))))
+(defgeneric nsget (namespace name))
+
+(defmethod nsget ((namespace function) name)
+  (funcall namespace name))
+
+(defun nget (namespace &rest names)
+  (dolist (name names namespace)
+    (setf namespace (nsget namespace name))))
 
 (defmacro invoke (func &rest args)
   (if (listp func)

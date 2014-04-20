@@ -72,8 +72,8 @@
       (null (cffi:null-pointer)))))
 
 (defun connect (g-object signal c-handler &key after swapped)
-  (let* ((object-ptr (if (functionp g-object)
-                         (nget g-object :this)
+  (let* ((object-ptr (if (typep g-object 'object)
+                         (object-this g-object)
                          g-object))
          (str-signal (string-downcase signal))
          (c-handler (cond 

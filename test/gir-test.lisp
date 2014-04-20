@@ -126,7 +126,7 @@
 
 (test (object-constructor :depends-on (and function enum))
       "Test the object constructor"
-      (is (eql 'function
+      (is (eql 'gir::object
 	       (let ((flags (nget *gio* "ApplicationFlags" :flags_none)))
 		 (setf *app* (invoke (*gio* "Application" 'new)
 				     *app-id1* flags))
@@ -134,7 +134,7 @@
 
 (test (object-this :depends-on object-constructor)
       "Test the object this pointer"
-      (is-true (pointerp (nget *app* :this))))
+      (is-true (pointerp (gir::object-this *app*))))
 
 (test (object-method :depends-on object-constructor)
       "Test the object constructor"
@@ -147,15 +147,10 @@
 (test (object-properties :depends-on object-method)
       "Test the object method"
       (is (equal *app-id2*
-		 (invoke (*app* :properties) 'application-id)))
+		 (property *app* 'application-id)))
       (is (equal *app-id1*
-		 (progn (invoke (*app* :set-properties!)
-				'application-id *app-id1*)
-			(invoke (*app* :properties) 'application-id))))
-      (is (equal (list *app-id1* nil)
-		 (multiple-value-list
-		  (invoke (*app* :properties)
-			  'application-id 'is-registered)))))
+		 (progn (setf (property *app* 'application-id) *app-id1*)
+			(property *app* 'application-id)))))
 
 (test (object-connect :depends-on object-method)
       "Test the object signal connect"

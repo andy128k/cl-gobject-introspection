@@ -30,10 +30,14 @@
 					    free array-length)))
   >giarg >value check description free array-length)
 
-(defun set-pointer (position value)
+(defun any->pointer (value)
   (typecase value
-    (function (set-pointer position (nget value :this)))
-    (t (setf (cffi:mem-ref position :pointer) value))))
+    (function (nget value :this))
+    (object (object-this value))
+    (t value)))
+
+(defun set-pointer (position value)
+  (setf (cffi:mem-ref position :pointer) (any->pointer value)))
 
 (defun get-pointer (position &optional length)
   (declare (ignore length))
@@ -130,24 +134,25 @@
 	      (typecase interface
 		((or union-info struct-info)
 		 (lambda (position value)
-		   (let ((pointer (typecase value
-				    (function (nget value :this))
-				    (t value))))
-		     (copy-memory position pointer size))))
+		   (copy-memory position (any->pointer value) size)))
 		(t
 		 (lambda (position value)
 		   (setf (cffi:mem-ref position :uint) value))))))
          (get
            (if pointer?
 	       (typecase interface
-		 ((or struct-info object-info)
-		  (let ((class (if (typep interface 'struct-info)
-				   (build-struct interface)
-				   (build-object interface))))
+		 (struct-info
+		  (let ((class (build-struct interface)))
 		    (lambda (position)
 		      (let ((this (get-pointer position)))
 			(if (cffi:null-pointer-p this) nil
 			    (funcall class this))))))
+		 (object-info
+		  (let ((class (build-object interface)))
+		    (lambda (position)
+		      (let ((this (get-pointer position)))
+			(if (cffi:null-pointer-p this) nil
+			    (build-object-ptr class this))))))
 		 (t #'get-pointer))
 	       (typecase interface
 		 (struct-info
