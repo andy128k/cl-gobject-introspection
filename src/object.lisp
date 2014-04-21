@@ -51,7 +51,7 @@
        (lambda (&rest args)
 	 (let ((this (apply (build-function function-info
 					    :return-raw-pointer t) args)))
-	   (build-object-ptr object-class (object-ref-sink this)))))
+	   (object-setup-gc (build-object-ptr object-class this)))))
       ((class-function? flags)
        (build-function function-info))
       (t
@@ -93,21 +93,24 @@
 (defun (setf property) (value object name)
   (set-properties! (object-this object) (list name value)))
 
+(cffi:defcfun g-object-is-floating :boolean (obj :pointer))
+(cffi:defcfun g-object-ref-sink :pointer (obj :pointer))
+(cffi:defcfun g-object-unref :void (obj :pointer))
+
+(defun object-setup-gc (object)
+  (let* ((this (object-this object))
+	 (floating? (g-object-is-floating this))
+         (a (cffi:pointer-address this)))
+    (if floating? (g-object-ref-sink this))
+    (tg:finalize this (lambda () (g-object-unref (cffi:make-pointer a)))))
+  object)
+
 (defmethod nsget ((object object) name)
   (let* ((object-class (object-class object))
 	 (method (object-class-build-method object-class name))
 	 (this (object-this object)))
     (lambda (&rest args)
       (apply method (cons this args)))))
-
-(cffi:defcfun g-object-ref-sink :pointer (obj :pointer))
-(cffi:defcfun g-object-unref :void (obj :pointer))
-
-(defun object-ref-sink (obj)
-  (let* ((res (g-object-ref-sink obj))
-         (a (cffi:pointer-address res)))
-    (tg:finalize res (lambda () (g-object-unref (cffi:make-pointer a))))
-    res))
 
 (defun gobject (gtype ptr)
   (let ((info (repository-find-by-gtype nil gtype))
