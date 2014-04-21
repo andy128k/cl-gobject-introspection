@@ -21,14 +21,14 @@
 
 (defstruct
     (converter
-      (:constructor make-converter (size set get free)))
-  size set get free)
+      (:constructor make-converter (size set get free gc)))
+  size set get free gc)
 
 (defstruct 
     (translator 
       (:constructor make-translator (>giarg >value check description
-					    free array-length)))
-  >giarg >value check description free array-length)
+					    free gc array-length)))
+  >giarg >value check description free gc array-length)
 
 (defun any->pointer (value)
   (typecase value
@@ -52,6 +52,9 @@
 
 (defun dont-free (giarg &optional length)
   (declare (ignore giarg length)))
+
+(defun dont-gc (value)
+  (declare (ignore value)))
 
 (defun build-array-converter (type)
   (let* ((param-type (type-info-get-param-type type 0))
@@ -112,8 +115,12 @@
 		    :until (and zero-terminated? (zero? pos param-size))
 		    :do (if (funcall param-free pos) (return t))
 		    :finally (cffi:foreign-free array)))))
-	    (t #'dont-free))))
-    (make-converter nil set get free)))
+	    (t #'dont-free)))
+	 (gc
+	  (lambda (value)
+	    (dolist (item value)
+	      (funcall (converter-gc param-converter) item)))))
+    (make-converter nil set get free gc)))
 
 (defun build-interface-converter (type)
   (let* ((pointer? (type-info-is-pointer type))
@@ -166,17 +173,17 @@
 		    (cffi:mem-ref position :uint))))))
          (free
 	  (if pointer?
-	      (typecase interface
-		(object-info
-		 (lambda (position)
-		   (let ((this (get-pointer position)))
-		     (object-ref-sink this))))
-		(t #'dont-free))
+	      #'dont-free
 	      (typecase interface
 		((or struct-info union-info)
 		 (lambda (position) (declare (ignore position)) t))
-		(t #'dont-free)))))
-    (make-converter size set get free)))
+		(t #'dont-free))))
+	 (gc
+	  (if (and pointer? (typep interface 'object-info))
+	      (lambda (value)
+		(object-setup-gc value) nil)
+	      #'dont-gc)))
+    (make-converter size set get free gc)))
 
 (defun build-string-converter (type)
   (declare (ignore type))
@@ -192,7 +199,7 @@
          (free
 	  (lambda (position)
 	    (cffi:foreign-free (get-pointer position)))))
-    (make-converter size set get free)))
+    (make-converter size set get free #'dont-gc)))
 
 (defun build-void-converter (type)
   (let* ((pointer? (type-info-is-pointer type))
@@ -209,7 +216,7 @@
 	      (lambda (position) (declare (ignore position)) nil)))
          (free
 	  #'dont-free))
-    (make-converter size set get free)))
+    (make-converter size set get free #'dont-gc)))
 
 (defun build-general-converter (type)
   (let* ((tag (type-info-get-tag type))
@@ -252,7 +259,7 @@
 		 (cffi:mem-ref position foreign-type))))
          (free
 	  #'dont-free))
-    (make-converter size set get free)))
+    (make-converter size set get free #'dont-gc)))
 
 (defun build-converter (type)
   (case (type-info-get-tag type)
@@ -322,14 +329,14 @@
          (check-value
           (lambda (value) (declare (ignore value)) t))
          (description (format nil "~a" tag)))
-    (make-translator value->giarg giarg->value 
-                     check-value description giarg-free array-length)))
+    (make-translator value->giarg giarg->value check-value description
+		     giarg-free (converter-gc converter) array-length)))
 (export 'build-translator)
 
 (defvar *raw-pointer-translator*
   (make-translator #'pointer->giarg #'giarg->pointer
 		   #'cffi:pointerp "raw pointer"
-		   #'dont-free nil))
+		   #'dont-free #'dont-gc nil))
 
 (defmacro incf-giargs (giargs)
   `(setf ,giargs (cffi:mem-aptr ,giargs '(:union argument) 1)))
@@ -340,13 +347,15 @@
   array-length
   setup
   >value
-  clear)
+  clear
+  gc)
 
 (defvar *obj-arg-processor*
   (make-arg-processor
    :direction :in
    :setup #'pointer->giarg
-   :clear #'dont-free))
+   :clear #'dont-free
+   :gc #'dont-gc))
 
 (defun build-arg-processor (arg)
   (let* ((trans (build-translator (arg-info-get-type arg)))
@@ -359,10 +368,14 @@
 		  ((:in-out :out)
 		   (ecase transfer
 		     (:everything (translator-free trans))
-		     ((:nothing :container) #'dont-free))))))
+		     ((:nothing :container) #'dont-free)))))
+	 (gc (ecase transfer
+	       (:everything (translator-gc trans))
+	       ((:nothing :container) #'dont-gc))))
     (make-arg-processor :direction direction
 			:array-length (translator-array-length trans)
-			:setup setup :>value arg->value :clear clear)))
+			:setup setup :>value arg->value :clear clear
+			:gc gc)))
 
 (defun get-args (info)
   ;; if construct + in-arg
@@ -486,6 +499,14 @@
 		 (null (arg-processor-for-array-length? proc)))
       :collect (arg-state-value arg-state))))
 
+(defun gc-args (args-state)
+  (loop
+     :for arg-state :in args-state
+     :for proc = (arg-state-proc arg-state)
+     :for value = (arg-state-value arg-state)
+     :when (and value (not (eq (arg-processor-direction proc) :in)))
+     :do (funcall (arg-processor-gc proc) value)))
+
 (defun clear-giargs (args-state)
   (loop
      :for arg-state :in args-state
@@ -510,11 +531,16 @@
 	   (res-trans (if return-raw-pointer
 			  *raw-pointer-translator*
 			  (return-giarg info)))
-	   (res-clear (ecase (callable-info-get-caller-owns info)
+	   (caller-owns (callable-info-get-caller-owns info))
+	   (res-clear (ecase caller-owns
 			(:everything (translator-free res-trans))
-			((:nothing :container) #'dont-free))))
+			((:nothing :container) #'dont-free)))
+	   (res-gc (ecase caller-owns
+		     (:everything (translator-gc res-trans))
+		     ((:nothing :container) #'dont-gc))))
       (lambda (&rest args)
-	(let ((args-state (make-args-state args-processor)))
+	(let ((args-state (make-args-state args-processor))
+	      out)
 	  (check-args args (- in-count in-array-length-count) name)
 	  (set-args-state-input args-state args)
 	  (values-list
@@ -530,6 +556,9 @@
 					    giargs-in in-count
 					    giargs-out out-count
 					    giarg-res g-error)
-		    (make-out res-trans giarg-res args-state))
+		    (setf out (make-out res-trans giarg-res args-state)))
+	       (if (and out (car out))
+		   (funcall res-gc (car out)))
+	       (gc-args args-state)
 	       (clear-giargs args-state)
 	       (funcall res-clear giarg-res)))))))))
