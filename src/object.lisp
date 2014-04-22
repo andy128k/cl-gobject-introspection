@@ -25,10 +25,13 @@
 
 (defstruct
     (object-class
-      (:constructor make-object-class (info signals fields-dict)))
+      (:constructor make-object-class (info signals fields-dict
+				       function-cache method-cache)))
   info
   signals
-  fields-dict)
+  fields-dict
+  function-cache
+  method-cache)
 
 (defun build-object-class (info)
   (let* ((signals (list nil))
@@ -37,7 +40,9 @@
              :collect
              (let ((field-info (g-object-info-get-field info i)))
                (cons (info-get-name field-info) field-info)))))
-    (make-object-class info signals fields-dict)))
+    (make-object-class info signals fields-dict
+		       (make-hash-table :test 'equal)
+		       (make-hash-table :test 'equal))))
 
 (defun object-class-build-constructor-class-function (object-class name)
   (let* ((info (object-class-info object-class))
@@ -68,7 +73,13 @@
 	     (error "Bad FFI field name ~a" name)))))
 
 (defmethod nsget ((object-class object-class) name)
-  (object-class-build-constructor-class-function object-class name))
+  (let* ((function-cache (object-class-function-cache object-class))
+	 (cname (c-name name))
+	 (function (gethash cname function-cache)))
+    (if function
+	function
+	(setf (gethash cname function-cache)
+	      (object-class-build-constructor-class-function object-class name)))))
 
 (defmethod field ((object object) name)
   (let* ((object-class (object-class object))
@@ -100,8 +111,13 @@
 
 (defmethod nsget ((object object) name)
   (let* ((object-class (object-class object))
-	 (method (object-class-build-method object-class name))
+	 (method-cache (object-class-method-cache object-class))
+	 (cname (c-name name))
+         (method (gethash cname method-cache))
 	 (this (object-this object)))
+    (when (null method)
+	(setf method (object-class-build-method object-class name))
+	(setf (gethash cname method-cache) method))
     (lambda (&rest args)
       (apply method (cons this args)))))
 
