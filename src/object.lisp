@@ -30,7 +30,7 @@
   signals
   fields-dict)
 
-(defun build-object (info)
+(defun build-object-class (info)
   (let* ((signals (list nil))
 	 (fields-dict
           (loop :for i :below (g-object-info-get-n-fields info)
@@ -117,7 +117,7 @@
 	object-class)
     (if (and info (eq (info-get-type info) :object))
 	(progn
-	  (setf object-class (build-object info))
+	  (setf object-class (build-object-class info))
 	  (build-object-ptr object-class ptr))
         (error "gtype ~a not found in GI. Found ~a" 
                gtype (info-get-type info)))))

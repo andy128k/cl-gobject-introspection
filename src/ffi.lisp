@@ -17,8 +17,8 @@
 (defun build-interface (info)
   (etypecase info
     (function-info (build-function info))
-    (object-info (build-object info))
-    (struct-info (build-struct info))
+    (object-info (build-object-class info))
+    (struct-info (build-struct-class info))
     (enum-info (build-enum info))
     (constant-info (constant-info-get-value info))))
 

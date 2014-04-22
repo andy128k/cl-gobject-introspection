@@ -13,7 +13,7 @@
   signals
   fields-dict)
 
-(defun build-struct (info)
+(defun build-struct-class (info)
   (let* ((signals (list nil))
          (fields-dict
           (loop :for field-info :in (struct-info-get-fields info)
