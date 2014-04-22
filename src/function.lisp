@@ -149,13 +149,13 @@
            (if pointer?
 	       (typecase interface
 		 (struct-info
-		  (let ((class (build-struct-class interface)))
+		  (let ((class (find-build-interface interface)))
 		    (lambda (position)
 		      (let ((this (get-pointer position)))
 			(if (cffi:null-pointer-p this) nil
 			    (build-struct-ptr class this))))))
 		 (object-info
-		  (let ((class (build-object-class interface)))
+		  (let ((class (find-build-interface interface)))
 		    (lambda (position)
 		      (let ((this (get-pointer position)))
 			(if (cffi:null-pointer-p this) nil
@@ -163,7 +163,7 @@
 		 (t #'get-pointer))
 	       (typecase interface
 		 (struct-info
-		  (let ((struct-class (build-struct-class interface)))
+		  (let ((struct-class (find-build-interface interface)))
 		    (lambda (position)
 		      (build-struct-ptr struct-class position))))
 		 (union-info

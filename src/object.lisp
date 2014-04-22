@@ -117,7 +117,7 @@
 	object-class)
     (if (and info (eq (info-get-type info) :object))
 	(progn
-	  (setf object-class (build-object-class info))
+	  (setf object-class (find-build-interface info))
 	  (build-object-ptr object-class ptr))
         (error "gtype ~a not found in GI. Found ~a" 
                gtype (info-get-type info)))))
