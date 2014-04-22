@@ -8,17 +8,22 @@
 
 (defstruct
     (struct-class
-      (:constructor make-struct-class (info signals fields-dict)))
+      (:constructor make-struct-class (info signals fields-dict
+				       constructor-cache method-cache)))
   info
   signals
-  fields-dict)
+  fields-dict
+  constructor-cache
+  method-cache)
 
-(defun build-struct (info)
+(defun build-struct-class (info)
   (let* ((signals (list nil))
          (fields-dict
           (loop :for field-info :in (struct-info-get-fields info)
              :collect (cons (info-get-name field-info) field-info))))
-    (make-struct-class info signals fields-dict)))
+    (make-struct-class info signals fields-dict
+		       (make-hash-table :test 'equal)
+		       (make-hash-table :test 'equal))))
 
 (defun allocate-struct (struct-class)
   (let* ((info (struct-class-info struct-class))
@@ -29,15 +34,15 @@
 (defun struct-class-build-constructor (struct-class name)
   (let* ((info (struct-class-info struct-class))
 	 (function-info (struct-info-find-method info (c-name name)))
-	 (flags (function-info-get-flags function-info)))
+	 (flags (if function-info (function-info-get-flags function-info))))
     (unless (and function-info (constructor? flags))
       (error "Bad FFI constructor name ~a" name))
-    (build-function function-info :return-raw-pointer t)))
+    (build-function function-info)))
 
 (defun struct-class-build-method (struct-class name)
   (let* ((info (struct-class-info struct-class))
 	 (function-info (struct-info-find-method info (c-name name)))
-	 (flags (function-info-get-flags function-info)))
+	 (flags (if function-info (function-info-get-flags function-info))))
     (unless (and function-info (method? flags))
       (error "Bad FFI constructor name ~a" name))
     (build-function function-info)))
@@ -51,9 +56,13 @@
 	     (error "Bad FFI field name ~a" name)))))
 
 (defmethod nsget ((struct-class struct-class) name)
-  (let* ((constructor (struct-class-build-constructor struct-class name)))
-    (lambda (&rest args)
-      (build-struct-ptr struct-class (apply constructor args)))))
+  (let* ((constructor-cache (struct-class-constructor-cache struct-class))
+	 (cname (c-name name))
+	 (constructor (gethash cname constructor-cache)))
+    (if constructor
+	constructor
+	(setf (gethash cname constructor-cache)
+	      (struct-class-build-constructor struct-class name)))))
 
 (defmethod field ((struct struct) name)
   (let* ((struct-class (struct-class struct))
@@ -78,6 +87,11 @@
 
 (defmethod nsget ((struct struct) name)
   (let* ((struct-class (struct-class struct))
-	 (method (struct-class-build-method struct-class name)))
+	 (method-cache (struct-class-method-cache struct-class))
+	 (cname (c-name name))
+	 (method (gethash cname method-cache)))
+    (when (null method)
+      (setf method (struct-class-build-method struct-class name))
+      (setf (gethash cname method-cache) method))
     (lambda (&rest args)
       (apply method (cons (struct-this struct) args)))))

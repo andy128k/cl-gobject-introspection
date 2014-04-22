@@ -149,13 +149,13 @@
            (if pointer?
 	       (typecase interface
 		 (struct-info
-		  (let ((class (build-struct interface)))
+		  (let ((class (find-build-interface interface)))
 		    (lambda (position)
 		      (let ((this (get-pointer position)))
 			(if (cffi:null-pointer-p this) nil
 			    (build-struct-ptr class this))))))
 		 (object-info
-		  (let ((class (build-object interface)))
+		  (let ((class (find-build-interface interface)))
 		    (lambda (position)
 		      (let ((this (get-pointer position)))
 			(if (cffi:null-pointer-p this) nil
@@ -163,7 +163,7 @@
 		 (t #'get-pointer))
 	       (typecase interface
 		 (struct-info
-		  (let ((struct-class (build-struct interface)))
+		  (let ((struct-class (find-build-interface interface)))
 		    (lambda (position)
 		      (build-struct-ptr struct-class position))))
 		 (union-info
@@ -524,13 +524,11 @@
   (out-args :pointer) (n-out-args :int)
   (ret :pointer) (g-error :pointer))
 
-(defun build-function (info &key return-raw-pointer)
+(defun build-function (info)
   (multiple-value-bind (args-processor in-count out-count in-array-length-count)
       (get-args info)
     (let* ((name (info-get-name info))
-	   (res-trans (if return-raw-pointer
-			  *raw-pointer-translator*
-			  (return-giarg info)))
+	   (res-trans (return-giarg info))
 	   (caller-owns (callable-info-get-caller-owns info))
 	   (res-clear (ecase caller-owns
 			(:everything (translator-free res-trans))

@@ -10,13 +10,13 @@
 
 (test ffi
       "Test the ffi function"
-      (is (eql 'function
+      (is (eql 'gir::namespace
 	       (progn (setf *glib* (ffi "GLib"))
 		      (type-of *glib*))))
-      (is (eql 'function
+      (is (eql 'gir::namespace
 	       (progn (setf *gio* (ffi "Gio"))
 		      (type-of *gio*))))
-      (is (eql 'function
+      (is (eql 'gir::namespace
 	       (progn (setf *gtk* (ffi "Gtk"))
 		      (type-of *gtk*)))))
 
