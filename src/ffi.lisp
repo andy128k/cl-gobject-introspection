@@ -24,15 +24,16 @@
 
 (defstruct
     (namespace
-      (:constructor make-namespace (name version)))
+      (:constructor make-namespace (name version interface-cache)))
   name
-  version)
+  version
+  interface-cache)
 
 (defvar *namespace-cache* (make-hash-table :test 'equal))
 
 (defun build-ffi (namespace &optional version)
   (repository-require nil namespace (if version version (cffi:null-pointer)))
-  (make-namespace namespace version))
+  (make-namespace namespace version (make-hash-table :test 'equal)))
 
 (defun ffi (namespace &optional version)
   (let ((cache (gethash namespace *namespace-cache*)))
@@ -44,7 +45,12 @@
 
 (defmethod nsget ((namespace namespace) name)
    (let* ((nsname (namespace-name namespace))
-	  (info (repository-find-by-name nil nsname (c-name name))))
-     (if info
-	 (build-interface info)
-	 (warn "No such FFI name ~a" name))))
+	  (interface-cache (namespace-interface-cache namespace))
+	  (cname (c-name name))
+	  (interface (gethash cname interface-cache)))
+     (if interface
+	 interface
+	 (let ((info (repository-find-by-name nil nsname cname)))
+	   (if info
+	       (setf (gethash cname interface-cache) (build-interface info))
+	       (warn "No such FFI name ~a" name))))))
