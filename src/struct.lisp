@@ -32,7 +32,7 @@
 	 (flags (function-info-get-flags function-info)))
     (unless (and function-info (constructor? flags))
       (error "Bad FFI constructor name ~a" name))
-    (build-function function-info :return-raw-pointer t)))
+    (build-function function-info)))
 
 (defun struct-class-build-method (struct-class name)
   (let* ((info (struct-class-info struct-class))
@@ -51,9 +51,7 @@
 	     (error "Bad FFI field name ~a" name)))))
 
 (defmethod nsget ((struct-class struct-class) name)
-  (let* ((constructor (struct-class-build-constructor struct-class name)))
-    (lambda (&rest args)
-      (build-struct-ptr struct-class (apply constructor args)))))
+    (struct-class-build-constructor struct-class name))
 
 (defmethod field ((struct struct) name)
   (let* ((struct-class (struct-class struct))

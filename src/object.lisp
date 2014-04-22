@@ -46,16 +46,9 @@
     (if function-info
 	(setf flags (function-info-get-flags function-info))
 	(error "Bad FFI constructor/function name ~a" name))
-    (cond
-      ((constructor? flags)
-       (lambda (&rest args)
-	 (let ((this (apply (build-function function-info
-					    :return-raw-pointer t) args)))
-	   (object-setup-gc (build-object-ptr object-class this)))))
-      ((class-function? flags)
-       (build-function function-info))
-      (t
-       (error "~a is not constructor or class function" name)))))
+    (if (or (constructor? flags) (class-function? flags))
+	(build-function function-info)
+	(error "~a is not constructor or class function" name))))
 
 (defun object-class-build-method (object-class name)
   (let* ((info (object-class-info object-class))

@@ -524,13 +524,11 @@
   (out-args :pointer) (n-out-args :int)
   (ret :pointer) (g-error :pointer))
 
-(defun build-function (info &key return-raw-pointer)
+(defun build-function (info)
   (multiple-value-bind (args-processor in-count out-count in-array-length-count)
       (get-args info)
     (let* ((name (info-get-name info))
-	   (res-trans (if return-raw-pointer
-			  *raw-pointer-translator*
-			  (return-giarg info)))
+	   (res-trans (return-giarg info))
 	   (caller-owns (callable-info-get-caller-owns info))
 	   (res-clear (ecase caller-owns
 			(:everything (translator-free res-trans))
