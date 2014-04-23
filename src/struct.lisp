@@ -37,7 +37,9 @@
 	 (flags (if function-info (function-info-get-flags function-info))))
     (unless (and function-info (constructor? flags))
       (error "Bad FFI constructor name ~a" name))
-    (build-function function-info)))
+    (let ((constructor (build-function function-info :return-raw-pointer t)))
+      (lambda (&rest args)
+	(build-struct-ptr struct-class (apply constructor args))))))
 
 (defun struct-class-build-method (struct-class name)
   (let* ((info (struct-class-info struct-class))
