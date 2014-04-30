@@ -56,7 +56,8 @@
        (let ((constructor (build-function function-info :return-raw-pointer t)))
 	 (lambda (&rest args)
 	   (let ((this (apply constructor args)))
-	     (object-setup-gc (build-object-ptr object-class this))))))
+	     (object-setup-gc (build-object-ptr object-class this)
+			      :everything)))))
       ((class-function? flags)
        (build-function function-info))
       (t
@@ -106,13 +107,16 @@
 
 (cffi:defcfun g-object-is-floating :boolean (obj :pointer))
 (cffi:defcfun g-object-ref-sink :pointer (obj :pointer))
+(cffi:defcfun g-object-ref :pointer (obj :pointer))
 (cffi:defcfun g-object-unref :void (obj :pointer))
 
-(defun object-setup-gc (object)
+(defun object-setup-gc (object transfer)
   (let* ((this (object-this object))
 	 (floating? (g-object-is-floating this))
          (a (cffi:pointer-address this)))
-    (if floating? (g-object-ref-sink this))
+    (if (eq transfer :everything)
+	(if floating? (g-object-ref-sink this))
+	(g-object-ref this))
     (tg:finalize this (lambda () (g-object-unref (cffi:make-pointer a)))))
   object)
 

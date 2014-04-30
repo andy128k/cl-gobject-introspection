@@ -53,8 +53,8 @@
 (defun dont-free (giarg &optional length)
   (declare (ignore giarg length)))
 
-(defun dont-gc (value)
-  (declare (ignore value)))
+(defun dont-gc (value transfer)
+  (declare (ignore value transfer)))
 
 (defun build-array-converter (type)
   (let* ((param-type (type-info-get-param-type type 0))
@@ -117,9 +117,12 @@
 		    :finally (cffi:foreign-free array)))))
 	    (t #'dont-free)))
 	 (gc
-	  (lambda (value)
-	    (dolist (item value)
-	      (funcall (converter-gc param-converter) item)))))
+	  (lambda (value transfer)
+	    (let ((param-transfer (if (eq transfer :container) :nothing
+				      transfer)))
+	      (dolist (item value)
+		(funcall (converter-gc param-converter)
+			 item param-transfer))))))
     (make-converter nil set get free gc)))
 
 (defun build-interface-converter (type)
@@ -180,8 +183,8 @@
 		(t #'dont-free))))
 	 (gc
 	  (if (and pointer? (typep interface 'object-info))
-	      (lambda (value)
-		(object-setup-gc value) nil)
+	      (lambda (value transfer)
+		(object-setup-gc value transfer) nil)
 	      #'dont-gc)))
     (make-converter size set get free gc)))
 
@@ -354,8 +357,7 @@
   (make-arg-processor
    :direction :in
    :setup #'pointer->giarg
-   :clear #'dont-free
-   :gc #'dont-gc))
+   :clear #'dont-free))
 
 (defun build-arg-processor (arg)
   (let* ((trans (build-translator (arg-info-get-type arg)))
@@ -369,9 +371,8 @@
 		   (ecase transfer
 		     (:everything (translator-free trans))
 		     ((:nothing :container) #'dont-free)))))
-	 (gc (ecase transfer
-	       (:everything (translator-gc trans))
-	       ((:nothing :container) #'dont-gc))))
+	 (gc (lambda (value)
+	       (funcall (translator-gc trans) value transfer))))
     (make-arg-processor :direction direction
 			:array-length (translator-array-length trans)
 			:setup setup :>value arg->value :clear clear
@@ -558,7 +559,7 @@
 					    giarg-res g-error)
 		    (setf out (make-out res-trans giarg-res args-state)))
 	       (if (and out (car out))
-		   (funcall res-gc (car out)))
+		   (funcall res-gc (car out) caller-owns))
 	       (gc-args args-state)
 	       (clear-giargs args-state)
 	       (funcall res-clear giarg-res)))))))))
