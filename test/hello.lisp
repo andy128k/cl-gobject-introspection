@@ -6,29 +6,32 @@
 
 (cffi:defcallback hello :void ((btn-ptr :pointer))
   (let ((button (funcall (gir:nget *gtk* "Button") btn-ptr)))
-    (gir:invoke (button :set-properties!) 'label "OK"))
+    (setf (gir:property button 'label) "OK"))
   (format t "Hello, pressed~%"))
 
 (defun main ()
   (gir:invoke (*gtk* 'init) nil)
   (let ((window (gir:invoke (*gtk* "Window" 'new)
 			    (gir:nget *gtk* "WindowType" :toplevel)))
-        (button (gir:invoke (*gtk* "Button" 'new-with-label) "Hello, world!")))
-    (gir::g-signal-connect-data (gir:nget window :this)
+        (button (gir:invoke (*gtk* "Button"
+                                   'new-with-label)
+                            "Hello, world!")))
+    (gir::g-signal-connect-data (gir:object-this window)
                                 "destroy"
                                 (cffi:foreign-symbol-pointer "gtk_main_quit")
                                 (cffi:null-pointer)
                                 (cffi:null-pointer)
                                 0)
-    ;; (gir::g-signal-connect-data (gir:call button :this)
-    ;;                             "clicked"
-    ;;                             (cffi:callback hello)
-    ;;                             (cffi:null-pointer)
-    ;;                             (cffi:null-pointer)
-    ;;                             0)
+    #+nil
+    (gir::g-signal-connect-data (gir:call button :this)
+                                "clicked"
+                                (cffi:callback hello)
+                                (cffi:null-pointer)
+                                (cffi:null-pointer)
+                                0)
     (gir:connect button :clicked 
                  (lambda (button)
-                   (gir:invoke (button :set-properties!) 'label "OK")))
+                   (setf (gir:property button 'label) "OK")))
     (gir:invoke (window 'add) button)
     (gir:invoke (window 'show-all))
     (gir:invoke (*gtk* 'main))))
