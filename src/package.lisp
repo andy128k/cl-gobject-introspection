@@ -143,4 +143,5 @@
    #:field
    #:property
    #:allocate-struct
-   #:free-struct))
+   #:free-struct
+   #:object-this))
