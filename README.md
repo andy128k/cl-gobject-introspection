@@ -55,7 +55,7 @@ To save some typing, a macro named invoke is introduced as follow,
 (gir:invoke (*gtk* "Window" 'new) 0)
 ```
 
-In this way, (*gtk* "Window" 'new) can be seen as function and "0" can
+In this way, (\*gtk\* "Window" 'new) can be seen as function and "0" can
 be seen as parameters.
 
 # 3. Get FFI element
@@ -149,10 +149,10 @@ will call method "add" with argument in variable "button".
 
 ## 4.1. Pointer to object
 
-To get C pointer to an object, use a special name :this.
+To get C pointer to an object, use object-this.
 
 ```racket
-(gir:nget *window* :this)
+(gir::object-this *window*)
 ```
 
 It is possible to make an object from a pointer:
@@ -165,15 +165,15 @@ It is possible to make an object from a pointer:
 
 ## 4.2. Fields
 
-Getting and setting field values are done with :field and :set-field!.
+Getting and setting field values are done with field and setf.
 
 ```racket
 (defvar *entry* (gir:invoke (*gtk* "TargetEntry" 'new) "ok" 0 0))
                                                          
-> (gir:invoke (*entry* :field) 'flags)
+> (gir:field *entry* 'flags)
 0                                                        
-> (gir:invoke (*entry* :set-field!) 'flags 1)
-> (gir:invoke (*entry* :field) 'flags)
+> (setf (gir:field *entry* 'flags) 1)
+> (gir:field *entry* 'flags)
 1                                                        
 ```
 
@@ -182,14 +182,11 @@ unions or even strings. It is a restriction of GObjectIntrospection.
 
 ## 4.3. Properties
 
-Getting and setting field values are done with :properties and
-:set-properties!. You may get or set several properties at once.
+Getting and setting property are done with property and setf.
 
 ```racket
-(multiple-value-bind (width height)                                    
-  (gir:invoke (*window* :properties) 'width-request 'height-request)
-  ...)                                                                 
-(gir:invoke (*window* :set-properties!) 'width-request 100 'height-request 200)
+(gir:property *window* 'width-request)
+(setf (gir:property *window* 'width-request) 100)
 ```
 
 # 5. Signals
