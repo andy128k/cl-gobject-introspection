@@ -26,9 +26,8 @@
 
 (defstruct 
     (translator 
-      (:constructor make-translator (>giarg >value check description
-					    free gc array-length)))
-  >giarg >value check description free gc array-length)
+      (:constructor make-translator (>giarg >value free gc array-length)))
+  >giarg >value free gc array-length)
 
 (defun any->pointer (value)
   (typecase value
@@ -328,18 +327,13 @@
 		  (free (converter-free converter)))
 	      (if length
 		  (funcall free position length)
-		  (funcall free position)))))
-         (check-value
-          (lambda (value) (declare (ignore value)) t))
-         (description (format nil "~a" tag)))
-    (make-translator value->giarg giarg->value check-value description
-		     giarg-free (converter-gc converter) array-length)))
+		  (funcall free position))))))
+    (make-translator value->giarg giarg->value giarg-free
+		     (converter-gc converter) array-length)))
 (export 'build-translator)
 
 (defvar *raw-pointer-translator*
-  (make-translator #'pointer->giarg #'giarg->pointer
-		   #'cffi:pointerp "raw pointer"
-		   #'dont-free #'dont-gc nil))
+  (make-translator #'pointer->giarg #'giarg->pointer #'dont-free #'dont-gc nil))
 
 (defmacro incf-giargs (giargs)
   `(setf ,giargs (cffi:mem-aptr ,giargs '(:union argument) 1)))
