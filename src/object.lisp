@@ -8,15 +8,6 @@
     (string name)
     (symbol (string-downcase (substitute #\_ #\- (symbol-name name))))))
 
-(defun find-ffi-method (info name)
-  (and info
-       (or (object-info-find-method info name)
-           (loop 
-              :for i :in (object-info-get-interfaces info)
-              :for j = (interface-info-find-method i name)
-              :when j :return j)
-           (find-ffi-method (object-info-get-parent info) name))))
-
 (defstruct
     (object
       (:constructor make-object (class this)))
@@ -25,32 +16,41 @@
 
 (defstruct
     (object-class
-      (:constructor make-object-class (info signals fields-dict
-				       function-cache method-cache)))
+      (:constructor make-object-class (parent info interface-infos signals
+				       fields-dict function-cache
+				       method-cache)))
+  parent
   info
+  interface-infos
   signals
   fields-dict
   function-cache
   method-cache)
 
 (defun build-object-class (info)
-  (let* ((signals (list nil))
+  (let* ((parent
+	  (let ((parent-info (object-info-get-parent info)))
+	    (if parent-info
+		(find-build-interface parent-info)
+		nil)))
+	 (signals (list nil))
 	 (fields-dict
           (loop :for i :below (g-object-info-get-n-fields info)
              :collect
              (let ((field-info (g-object-info-get-field info i)))
                (cons (info-get-name field-info) field-info)))))
-    (make-object-class info signals fields-dict
+    (make-object-class parent info (object-info-get-interfaces info)
+		       signals fields-dict
 		       (make-hash-table :test 'equal)
 		       (make-hash-table :test 'equal))))
 
-(defun object-class-build-constructor-class-function (object-class name)
+(defun object-class-build-constructor-class-function (object-class cname)
   (let* ((info (object-class-info object-class))
-	 (function-info (find-ffi-method info (c-name name)))
+	 (function-info (object-info-find-method info cname))
 	 flags)
     (if function-info
 	(setf flags (function-info-get-flags function-info))
-	(error "Bad FFI constructor/function name ~a" name))
+	(error "Bad FFI constructor/function name ~a" cname))
     (cond
       ((constructor? flags)
        (let ((constructor (build-function function-info :return-raw-pointer t)))
@@ -61,16 +61,36 @@
       ((class-function? flags)
        (build-function function-info))
       (t
-       (error "~a is not constructor or class function" name)))))
+       (error "~a is not constructor or class function" cname)))))
 
-(defun object-class-build-method (object-class name)
+(defun object-class-find-function-info (object-class cname)
   (let* ((info (object-class-info object-class))
-	 (function-info (find-ffi-method info (c-name name)))
-	 flags)
-    (if function-info
-	(setf flags (function-info-get-flags function-info))
-	(error "Bad FFI method name ~a" name))
-    (build-function function-info)))
+	 (interface-infos (object-class-interface-infos object-class)))
+    (or (object-info-find-method info cname)
+	(loop
+	   :for intf :in interface-infos
+	   :for func = (interface-info-find-method intf cname)
+	   :when func :return func))))
+
+(defun object-class-build-method (object-class cname)
+  (let* ((function-info (object-class-find-function-info object-class cname))
+	 (flags (if function-info (function-info-get-flags function-info))))
+    (if (and function-info (method? flags))
+	(build-function function-info))))
+
+(defun object-class-find-build-method (object-class cname)
+  (let* ((parent (object-class-parent object-class))
+	 (method-cache (object-class-method-cache object-class))
+         (method (gethash cname method-cache)))
+    (if method
+	method
+	(progn
+	  (setf method (object-class-build-method object-class cname))
+	  (if method
+	      (setf (gethash cname method-cache) method)
+	      (if parent
+		  (setf method (object-class-find-build-method parent cname))
+		  (error "Bad FFI method name ~a" cname)))))))
 
 (defun build-object-ptr (object-class this)
   (make-object object-class this))
@@ -87,7 +107,7 @@
     (if function
 	function
 	(setf (gethash cname function-cache)
-	      (object-class-build-constructor-class-function object-class name)))))
+	      (object-class-build-constructor-class-function object-class cname)))))
 
 (defmethod field ((object object) name)
   (let* ((object-class (object-class object))
@@ -122,13 +142,9 @@
 
 (defmethod nsget ((object object) name)
   (let* ((object-class (object-class object))
-	 (method-cache (object-class-method-cache object-class))
 	 (cname (c-name name))
-         (method (gethash cname method-cache))
+         (method (object-class-find-build-method object-class cname))
 	 (this (object-this object)))
-    (when (null method)
-	(setf method (object-class-build-method object-class name))
-	(setf (gethash cname method-cache) method))
     (lambda (&rest args)
       (apply method (cons this args)))))
 
