@@ -20,14 +20,10 @@
       (:wraps-vfunc (return nil)))))
 
 (defstruct
-    (converter
-      (:constructor make-converter (size set get free gc)))
-  size set get free gc)
-
-(defstruct 
-    (translator 
-      (:constructor make-translator (>giarg >value free gc array-length)))
-  >giarg >value free gc array-length)
+    (translator
+      (:constructor make-translator (size set get free gc >giarg >value
+				     giarg-free)))
+  size set get free gc >giarg >value giarg-free)
 
 (defun any->pointer (value)
   (typecase value
@@ -55,13 +51,47 @@
 (defun dont-gc (value transfer)
   (declare (ignore value transfer)))
 
-(defun build-array-converter (type)
+(defun proc-dont-gc (value)
+  (declare (ignore value)))
+
+(defun build-giarg-functions (field set get free)
+  (let* ((value->giarg
+	  (lambda (giarg value)
+	    (funcall set
+		     (cffi:foreign-slot-pointer giarg '(:union argument) field)
+		     value)))
+	 (giarg->value
+	  (lambda (giarg &optional length)
+	    (let ((position (cffi:foreign-slot-pointer giarg '(:union argument)
+						       field)))
+	      (if length
+		  (funcall get position length)
+		  (funcall get position)))))
+         (giarg-free
+	  (if (eq free #'dont-free)
+	      #'dont-free
+	      (lambda (giarg &optional length)
+		(let ((position (cffi:foreign-slot-pointer
+				 giarg '(:union argument) field)))
+		  (if length
+		      (funcall free position length)
+		      (funcall free position)))))))
+    (values value->giarg giarg->value giarg-free)))
+
+(defun build-raw-pointer-translator ()
+  (let* ((size (cffi:foreign-type-size :pointer)))
+    (make-translator size #'set-pointer #'get-pointer #'dont-free #'dont-gc
+		     #'pointer->giarg #'giarg->pointer #'dont-free)))
+
+(defvar *raw-pointer-translator* (build-raw-pointer-translator))
+
+(defun build-array-translator (type)
   (let* ((param-type (type-info-get-param-type type 0))
-	 (param-converter (build-converter param-type))
-	 (param-size (converter-size param-converter))
-	 (param-set (converter-set param-converter))
-	 (param-get (converter-get param-converter))
-	 (param-free (converter-free param-converter))
+	 (param-translator (build-translator param-type))
+	 (param-size (translator-size param-translator))
+	 (param-set (translator-set param-translator))
+	 (param-get (translator-get param-translator))
+	 (param-free (translator-free param-translator))
 	 (zero-terminated? (type-info-is-zero-terminated type))
 	 (fixed-size (let ((size (type-info-get-array-fixed-size type)))
 		       (if (/= -1 size) size)))
@@ -120,75 +150,81 @@
 	    (let ((param-transfer (if (eq transfer :container) :nothing
 				      transfer)))
 	      (dolist (item value)
-		(funcall (converter-gc param-converter)
+		(funcall (translator-gc param-translator)
 			 item param-transfer))))))
-    (make-converter nil set get free gc)))
+    (multiple-value-bind (value->giarg giarg->value giarg-free)
+	(build-giarg-functions 'v-pointer set get free)
+      (make-translator nil set get free gc
+		       value->giarg giarg->value giarg-free))))
 
-(defun build-interface-converter (type)
-  (let* ((pointer? (type-info-is-pointer type))
-	 (interface (type-info-get-interface type))
-	 (size (if (not pointer?)
-		   (typecase interface
-		     (struct-info
-		      (struct-info-get-size interface))
-		     (union-info
-		      (union-info-get-size interface))
-		     (t
-		      (cffi:foreign-type-size :uint)))
-		   (cffi:foreign-type-size :pointer)))
+(defun build-interface-pointer-translator (interface)
+  (let* ((size (cffi:foreign-type-size :pointer))
          (set
-	  (if pointer?
-	      (lambda (position value)
-		(set-pointer position (if value value (cffi:null-pointer))))
-	      (typecase interface
-		((or union-info struct-info)
-		 (lambda (position value)
-		   (copy-memory position (any->pointer value) size)))
-		(t
-		 (lambda (position value)
-		   (setf (cffi:mem-ref position :uint) value))))))
+	  (lambda (position value)
+	    (set-pointer position (if value value (cffi:null-pointer)))))
          (get
-           (if pointer?
-	       (typecase interface
-		 (struct-info
-		  (let ((class (find-build-interface interface)))
-		    (lambda (position)
-		      (let ((this (get-pointer position)))
-			(if (cffi:null-pointer-p this) nil
-			    (build-struct-ptr class this))))))
-		 (object-info
-		  (let ((class (find-build-interface interface)))
-		    (lambda (position)
-		      (let ((this (get-pointer position)))
-			(if (cffi:null-pointer-p this) nil
-			    (build-object-ptr class this))))))
-		 (t #'get-pointer))
-	       (typecase interface
-		 (struct-info
-		  (let ((struct-class (find-build-interface interface)))
-		    (lambda (position)
-		      (build-struct-ptr struct-class position))))
-		 (union-info
-		  (lambda (position) position))
-		 (t
-		  (lambda (position)
-		    (cffi:mem-ref position :uint))))))
-         (free
-	  (if pointer?
-	      #'dont-free
-	      (typecase interface
-		((or struct-info union-info)
-		 (lambda (position) (declare (ignore position)) t))
-		(t #'dont-free))))
+	  (typecase interface
+	    (struct-info
+	     (let ((class (find-build-interface interface)))
+	       (lambda (position)
+		 (let ((this (get-pointer position)))
+		   (if (cffi:null-pointer-p this) nil
+		       (build-struct-ptr class this))))))
+	    (object-info
+	     (let ((class (find-build-interface interface)))
+	       (lambda (position)
+		 (let ((this (get-pointer position)))
+		   (if (cffi:null-pointer-p this) nil
+		       (build-object-ptr class this))))))
+	    (t #'get-pointer)))
 	 (gc
-	  (if (and pointer? (typep interface 'object-info))
+	  (if (typep interface 'object-info)
 	      (lambda (value transfer)
 		(object-setup-gc value transfer) nil)
 	      #'dont-gc)))
-    (make-converter size set get free gc)))
+    (multiple-value-bind (value->giarg giarg->value giarg-free)
+	(build-giarg-functions 'v-pointer set get #'dont-free)
+      (make-translator size set get #'dont-free gc
+		       value->giarg giarg->value giarg-free))))
 
-(defun build-string-converter (type)
-  (declare (ignore type))
+(defun build-interface-translator (interface)
+  (let* ((size (typecase interface
+		 (struct-info
+		  (struct-info-get-size interface))
+		 (union-info
+		  (union-info-get-size interface))
+		 (t
+		  (cffi:foreign-type-size :uint))))
+         (set
+	  (typecase interface
+	    ((or union-info struct-info)
+	     (lambda (position value)
+	       (copy-memory position (any->pointer value) size)))
+	    (t
+	     (lambda (position value)
+	       (setf (cffi:mem-ref position :uint) value)))))
+         (get
+	  (typecase interface
+	    (struct-info
+	     (let ((struct-class (find-build-interface interface)))
+	       (lambda (position)
+		 (build-struct-ptr struct-class position))))
+	    (union-info
+	     (lambda (position) position))
+	    (t
+	     (lambda (position)
+	       (cffi:mem-ref position :uint)))))
+         (free
+	  (typecase interface
+	    ((or struct-info union-info)
+	     (lambda (position) (declare (ignore position)) t))
+	    (t #'dont-free))))
+    (multiple-value-bind (value->giarg giarg->value giarg-free)
+	(build-giarg-functions 'v-uint set get free)
+      (make-translator size set get free #'dont-gc
+		       value->giarg giarg->value giarg-free))))
+
+(defun build-string-translator ()
   (let* ((size (cffi:foreign-type-size :pointer))
          (set
 	  (lambda (position value)
@@ -201,142 +237,126 @@
          (free
 	  (lambda (position)
 	    (cffi:foreign-free (get-pointer position)))))
-    (make-converter size set get free #'dont-gc)))
+    (multiple-value-bind (value->giarg giarg->value giarg-free)
+	(build-giarg-functions 'v-pointer set get free)
+      (make-translator size set get free #'dont-gc
+		       value->giarg giarg->value giarg-free))))
 
-(defun build-void-converter (type)
-  (let* ((pointer? (type-info-is-pointer type))
-	 (size (if pointer? (cffi:foreign-type-size :pointer)))
-	 (set
-	  (if pointer?
-	      #'set-pointer
-	      (lambda (position value)
-		(declare (ignore value))
-		(set-pointer position (cffi:null-pointer)))))
+(defvar *string-translator* (build-string-translator))
+
+(defun build-void-translator ()
+  (let* ((set
+	  (lambda (position value)
+	    (declare (ignore value))
+	    (set-pointer position (cffi:null-pointer))))
          (get
-	  (if pointer?
-	      #'get-pointer
-	      (lambda (position) (declare (ignore position)) nil)))
-         (free
-	  #'dont-free))
-    (make-converter size set get free #'dont-gc)))
+	  (lambda (position) (declare (ignore position)) nil)))
+    (multiple-value-bind (value->giarg giarg->value giarg-free)
+	(build-giarg-functions 'v-pointer set get #'dont-free)
+      (make-translator nil set get #'dont-free #'dont-gc
+		       value->giarg giarg->value giarg-free))))
 
-(defun build-general-converter (type)
-  (let* ((tag (type-info-get-tag type))
-         (pointer? (type-info-is-pointer type))
-	 (foreign-type (if pointer? :pointer
-			   (case tag
-			     (:boolean :boolean)
-			     (:int8 :int8)
-			     (:uint8 :uint8)
-			     (:int16 :int16)
-			     (:uint16 :uint16)
-			     (:int32 :int32)
-			     (:uint32 :uint32)
-			     (:int64 :int64)
-			     (:uint64 :uint64)
-			     (:short :short)
-			     (:ushort :ushort)
-			     (:int :int)
-			     (:uint :uint)
-			     (:long :long)
-			     (:ulong :ulong)
-			     (:sszie :long)
-			     (:szie :ulong)
-			     (:float :float)
-			     (:double :double)
-			     (:time-t :long)
-			     (:gtype :ulong)
-			     (:unichar :int32)
-			     (t :pointer))))
+(defvar *void-translator* (build-void-translator))
+
+(defun build-general-translator (tag)
+  (let* ((foreign-type (case tag
+			 (:boolean :boolean)
+			 (:int8 :int8)
+			 (:uint8 :uint8)
+			 (:int16 :int16)
+			 (:uint16 :uint16)
+			 (:int32 :int32)
+			 (:uint32 :uint32)
+			 (:int64 :int64)
+			 (:uint64 :uint64)
+			 (:short :short)
+			 (:ushort :ushort)
+			 (:int :int)
+			 (:uint :uint)
+			 (:long :long)
+			 (:ulong :ulong)
+			 (:sszie :long)
+			 (:szie :ulong)
+			 (:float :float)
+			 (:double :double)
+			 (:time-t :long)
+			 (:gtype :ulong)
+			 (:unichar :int32)
+			 (t :pointer)))
+	 (field  (case tag
+		   (:void 'v-pointer)
+		   (:boolean 'v-boolean)
+		   (:int8 'v-int8)
+		   (:uint8 'v-uint8)
+		   (:int16 'v-int16)
+		   (:uint16 'v-uint16)
+		   (:int32 'v-int32)
+		   (:uint32 'v-uint32)
+		   (:int64 'v-int64)
+		   (:uint64 'v-uint64)
+		   (:short 'v-short)
+		   (:ushort 'v-ushort)
+		   (:int 'v-int)
+		   (:uint 'v-uint)
+		   (:long 'v-long)
+		   (:ulong 'v-ulong)
+		   (:ssize 'v-long)
+		   (:size 'v-ulong)
+		   (:float 'v-float)
+		   (:double 'v-double)
+		   (:time-t 'v-long)
+		   (:gtype 'v-ulong)
+		   (:utf8 'v-string)
+		   (:interface 'v-uint)
+		   (:filename 'v-string)
+		   (:unichar 'v-uint32)
+		   (t 'v-pointer)))
 	 (size (cffi:foreign-type-size foreign-type))
          (set
-	  (if pointer?
-	      #'set-pointer
-	      (lambda (position value)
-		(setf (cffi:mem-ref position foreign-type) value))))
+	  (lambda (position value)
+	    (setf (cffi:mem-ref position foreign-type) value)))
          (get
-           (if pointer?
-	       #'get-pointer
-	       (lambda (position)
-		 (cffi:mem-ref position foreign-type))))
-         (free
-	  #'dont-free))
-    (make-converter size set get free #'dont-gc)))
+	  (lambda (position)
+	    (cffi:mem-ref position foreign-type))))
+    (multiple-value-bind (value->giarg giarg->value giarg-free)
+	(build-giarg-functions field set get #'dont-free)
+      (make-translator size set get #'dont-free #'dont-gc
+		       value->giarg giarg->value giarg-free))))
 
-(defun build-converter (type)
-  (case (type-info-get-tag type)
-    (:array (build-array-converter type))
-    (:interface (build-interface-converter type))
-    ((:utf8 :filename) (build-string-converter type))
-    (:void (build-void-converter type))
-    (t (build-general-converter type))))
-(export 'build-converter)
+(defvar *general-translator-cache* (make-hash-table))
+
+(defun find-build-general-translator (tag)
+  (let ((translator (gethash tag *general-translator-cache*)))
+    (if translator
+	translator
+	(setf (gethash tag *general-translator-cache*)
+	      (build-general-translator tag)))))
 
 (defun build-translator (type)
-  (let* ((tag (type-info-get-tag type))
-         (pointer? (type-info-is-pointer type))
-         (field (if pointer? 'v-pointer
-		    (case tag
-		      (:void 'v-pointer)
-		      (:boolean 'v-boolean)
-		      (:int8 'v-int8)
-		      (:uint8 'v-uint8)
-		      (:int16 'v-int16)
-		      (:uint16 'v-uint16)
-		      (:int32 'v-int32)
-		      (:uint32 'v-uint32)
-		      (:int64 'v-int64)
-		      (:uint64 'v-uint64)
-		      (:short 'v-short)
-		      (:ushort 'v-ushort)
-		      (:int 'v-int)
-		      (:uint 'v-uint)
-		      (:long 'v-long)
-		      (:ulong 'v-ulong)
-		      (:ssize 'v-long)
-		      (:size 'v-ulong)
-		      (:float 'v-float)
-		      (:double 'v-double)
-		      (:time-t 'v-long)
-		      (:gtype 'v-ulong)
-		      (:utf8 'v-string)
-		      (:interface 'v-uint)
-		      (:filename 'v-string)
-		      (:unichar 'v-uint32)
-		      (t 'v-pointer))))
-	 (converter (build-converter type))
-	 (array-length (let ((length (type-info-get-array-length type)))
-			 (if (eql length -1) nil length)))
-         (value->giarg
-	  (lambda (giarg value)
-	    (funcall (converter-set converter)
-		     (cffi:foreign-slot-pointer giarg '(:union argument) field)
-		     value)))
-         (giarg->value
-	  (lambda (giarg &optional length)
-	    (let ((position (cffi:foreign-slot-pointer giarg '(:union argument)
-						       field))
-		  (get (converter-get converter)))
-	      (if length
-		  (funcall get position length)
-		  (funcall get position)))))
-         (giarg-free
-	  (lambda (giarg &optional length)
-	    (let ((position (cffi:foreign-slot-pointer giarg '(:union argument)
-						       field))
-		  (free (converter-free converter)))
-	      (if length
-		  (funcall free position length)
-		  (funcall free position))))))
-    (make-translator value->giarg giarg->value giarg-free
-		     (converter-gc converter) array-length)))
+  (let ((pointer? (type-info-is-pointer type))
+	(tag (type-info-get-tag type)))
+    (if pointer?
+	(case tag
+	  (:array (build-array-translator type))
+	  (:interface
+	   (build-interface-pointer-translator (type-info-get-interface type)))
+	  ((:utf8 :filename) *string-translator*)
+	  (t *raw-pointer-translator*))
+	(case tag
+	  (:interface
+	   (build-interface-translator (type-info-get-interface type)))
+	  (:void *void-translator*)
+	  ((:array :utf8 :filename)
+	   (error "array, utf8, filename must be pointer"))
+	  (t (find-build-general-translator tag))))))
 (export 'build-translator)
-
-(defvar *raw-pointer-translator*
-  (make-translator #'pointer->giarg #'giarg->pointer #'dont-free #'dont-gc nil))
 
 (defmacro incf-giargs (giargs)
   `(setf ,giargs (cffi:mem-aptr ,giargs '(:union argument) 1)))
+
+(defun get-array-length (type)
+  (let ((length (type-info-get-array-length type)))
+    (if (eql length -1) nil length)))
 
 (defstruct arg-processor
   direction
@@ -354,23 +374,45 @@
    :clear #'dont-free))
 
 (defun build-arg-processor (arg)
-  (let* ((trans (build-translator (arg-info-get-type arg)))
+  (let* ((type (arg-info-get-type arg))
+	 (trans (build-translator type))
 	 (direction (arg-info-get-direction arg))
 	 (transfer (arg-info-get-ownership-transfer arg))
 	 (setup (translator->giarg trans))
 	 (arg->value (translator->value trans))
 	 (clear (ecase direction
-		  (:in (translator-free trans))
+		  (:in (translator-giarg-free trans))
 		  ((:in-out :out)
 		   (ecase transfer
-		     (:everything (translator-free trans))
+		     (:everything (translator-giarg-free trans))
 		     ((:nothing :container) #'dont-free)))))
 	 (gc (lambda (value)
 	       (funcall (translator-gc trans) value transfer))))
     (make-arg-processor :direction direction
-			:array-length (translator-array-length trans)
+			:array-length (get-array-length type)
 			:setup setup :>value arg->value :clear clear
 			:gc gc)))
+
+(defstruct return-processor
+  array-length
+  >value
+  clear
+  gc)
+
+(defun build-return-processor (func-info &key return-interface)
+  (let* ((type (callable-info-get-return-type func-info))
+	 (transfer (callable-info-get-caller-owns func-info))
+	 (trans (if return-interface
+		    (build-interface-pointer-translator return-interface)
+		    (build-translator type)))
+	 (clear (ecase transfer
+		  (:everything (translator-giarg-free trans))
+		  ((:nothing :container) #'dont-free)))
+	 (gc (lambda (value)
+	       (funcall (translator-gc trans) value transfer))))
+    (make-return-processor :array-length (get-array-length type)
+			   :>value (translator->value trans) :clear clear
+			   :gc gc)))
 
 (defun get-args (info)
   ;; if construct + in-arg
@@ -460,10 +502,7 @@
 	    (incf-giargs outp)
 	    (incf-giargs voutp)))))
 
-(defun return-giarg (info)
-  (build-translator (callable-info-get-return-type info)))
-
-(defun make-out (res-trans giarg-res args-state)
+(defun make-out (ret-proc giarg-res args-state)
   (loop
      :for arg-state :in args-state
      :for proc = (arg-state-proc arg-state)
@@ -482,11 +521,11 @@
 				(arg-state-giarg arg-state) length)))
 	   (setf (arg-state-value arg-state) value)))
   (cons
-   (let ((array-length (translator-array-length res-trans)))
+   (let ((array-length (return-processor-array-length ret-proc)))
      (if array-length
-	 (funcall (translator->value res-trans) giarg-res
+	 (funcall (return-processor->value ret-proc) giarg-res
 		  (arg-state-value (nth array-length args-state)))
-	 (funcall (translator->value res-trans) giarg-res)))
+	 (funcall (return-processor->value ret-proc) giarg-res)))
    (loop
       :for arg-state :in args-state
       :for proc = (arg-state-proc arg-state)
@@ -519,20 +558,12 @@
   (out-args :pointer) (n-out-args :int)
   (ret :pointer) (g-error :pointer))
 
-(defun build-function (info &key return-raw-pointer)
+(defun build-function (info &key return-interface)
   (multiple-value-bind (args-processor in-count out-count in-array-length-count)
       (get-args info)
     (let* ((name (info-get-name info))
-	   (res-trans (if return-raw-pointer
-			  *raw-pointer-translator*
-			  (return-giarg info)))
-	   (caller-owns (callable-info-get-caller-owns info))
-	   (res-clear (ecase caller-owns
-			(:everything (translator-free res-trans))
-			((:nothing :container) #'dont-free)))
-	   (res-gc (ecase caller-owns
-		     (:everything (translator-gc res-trans))
-		     ((:nothing :container) #'dont-gc))))
+	   (ret-proc (build-return-processor info :return-interface
+					     return-interface)))
       (lambda (&rest args)
 	(let ((args-state (make-args-state args-processor))
 	      out)
@@ -551,9 +582,9 @@
 					    giargs-in in-count
 					    giargs-out out-count
 					    giarg-res g-error)
-		    (setf out (make-out res-trans giarg-res args-state)))
+		    (setf out (make-out ret-proc giarg-res args-state)))
 	       (if (and out (car out))
-		   (funcall res-gc (car out) caller-owns))
+		   (funcall (return-processor-gc ret-proc) (car out)))
 	       (gc-args args-state)
 	       (clear-giargs args-state)
-	       (funcall res-clear giarg-res)))))))))
+	       (funcall (return-processor-clear ret-proc) giarg-res)))))))))

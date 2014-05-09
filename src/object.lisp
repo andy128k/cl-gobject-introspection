@@ -53,11 +53,7 @@
 	(error "Bad FFI constructor/function name ~a" cname))
     (cond
       ((constructor? flags)
-       (let ((constructor (build-function function-info :return-raw-pointer t)))
-	 (lambda (&rest args)
-	   (let ((this (apply constructor args)))
-	     (object-setup-gc (build-object-ptr object-class this)
-			      :everything)))))
+       (build-function function-info :return-interface info))
       ((class-function? flags)
        (build-function function-info))
       (t
