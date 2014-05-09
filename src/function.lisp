@@ -55,6 +55,9 @@
 (defun dont-gc (value transfer)
   (declare (ignore value transfer)))
 
+(defun proc-dont-gc (value)
+  (declare (ignore value)))
+
 (defun build-array-converter (type)
   (let* ((param-type (type-info-get-param-type type 0))
 	 (param-converter (build-converter param-type))
@@ -332,9 +335,6 @@
 		     (converter-gc converter) array-length)))
 (export 'build-translator)
 
-(defvar *raw-pointer-translator*
-  (make-translator #'pointer->giarg #'giarg->pointer #'dont-free #'dont-gc nil))
-
 (defmacro incf-giargs (giargs)
   `(setf ,giargs (cffi:mem-aptr ,giargs '(:union argument) 1)))
 
@@ -371,6 +371,31 @@
 			:array-length (translator-array-length trans)
 			:setup setup :>value arg->value :clear clear
 			:gc gc)))
+
+(defstruct return-processor
+  array-length
+  >value
+  clear
+  gc)
+
+(defvar *raw-return-processor*
+  (make-return-processor
+   :>value #'giarg->pointer
+   :clear #'dont-free
+   :gc #'proc-dont-gc))
+
+(defun build-return-processor (func-info)
+  (let* ((type (callable-info-get-return-type func-info))
+	 (transfer (callable-info-get-caller-owns func-info))
+	 (trans (build-translator type))
+	 (clear (ecase transfer
+		  (:everything (translator-free trans))
+		  ((:nothing :container) #'dont-free)))
+	 (gc (lambda (value)
+	       (funcall (translator-gc trans) value transfer))))
+    (make-return-processor :array-length (translator-array-length trans)
+			   :>value (translator->value trans) :clear clear
+			   :gc gc)))
 
 (defun get-args (info)
   ;; if construct + in-arg
@@ -460,10 +485,7 @@
 	    (incf-giargs outp)
 	    (incf-giargs voutp)))))
 
-(defun return-giarg (info)
-  (build-translator (callable-info-get-return-type info)))
-
-(defun make-out (res-trans giarg-res args-state)
+(defun make-out (ret-proc giarg-res args-state)
   (loop
      :for arg-state :in args-state
      :for proc = (arg-state-proc arg-state)
@@ -482,11 +504,11 @@
 				(arg-state-giarg arg-state) length)))
 	   (setf (arg-state-value arg-state) value)))
   (cons
-   (let ((array-length (translator-array-length res-trans)))
+   (let ((array-length (return-processor-array-length ret-proc)))
      (if array-length
-	 (funcall (translator->value res-trans) giarg-res
+	 (funcall (return-processor->value ret-proc) giarg-res
 		  (arg-state-value (nth array-length args-state)))
-	 (funcall (translator->value res-trans) giarg-res)))
+	 (funcall (return-processor->value ret-proc) giarg-res)))
    (loop
       :for arg-state :in args-state
       :for proc = (arg-state-proc arg-state)
@@ -523,16 +545,9 @@
   (multiple-value-bind (args-processor in-count out-count in-array-length-count)
       (get-args info)
     (let* ((name (info-get-name info))
-	   (res-trans (if return-raw-pointer
-			  *raw-pointer-translator*
-			  (return-giarg info)))
-	   (caller-owns (callable-info-get-caller-owns info))
-	   (res-clear (ecase caller-owns
-			(:everything (translator-free res-trans))
-			((:nothing :container) #'dont-free)))
-	   (res-gc (ecase caller-owns
-		     (:everything (translator-gc res-trans))
-		     ((:nothing :container) #'dont-gc))))
+	   (ret-proc (if return-raw-pointer
+			 *raw-return-processor*
+			 (build-return-processor info))))
       (lambda (&rest args)
 	(let ((args-state (make-args-state args-processor))
 	      out)
@@ -551,9 +566,9 @@
 					    giargs-in in-count
 					    giargs-out out-count
 					    giarg-res g-error)
-		    (setf out (make-out res-trans giarg-res args-state)))
+		    (setf out (make-out ret-proc giarg-res args-state)))
 	       (if (and out (car out))
-		   (funcall res-gc (car out) caller-owns))
+		   (funcall (return-processor-gc ret-proc) (car out)))
 	       (gc-args args-state)
 	       (clear-giargs args-state)
-	       (funcall res-clear giarg-res)))))))))
+	       (funcall (return-processor-clear ret-proc) giarg-res)))))))))
