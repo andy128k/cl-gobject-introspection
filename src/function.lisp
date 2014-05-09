@@ -256,6 +256,15 @@
 	    (cffi:mem-ref position foreign-type))))
     (make-converter size set get #'dont-free #'dont-gc)))
 
+(defvar *general-converter-cache* (make-hash-table))
+
+(defun find-build-general-converter (tag)
+  (let ((converter (gethash tag *general-converter-cache*)))
+    (if converter
+	converter
+	(setf (gethash tag *general-converter-cache*)
+	      (build-general-converter tag)))))
+
 (defun build-converter (type)
   (let ((pointer? (type-info-is-pointer type))
 	(tag (type-info-get-tag type)))
@@ -272,7 +281,7 @@
 	  (:void *void-converter*)
 	  ((:array :utf8 :filename)
 	   (error "array, utf8, filename must be pointer"))
-	  (t (build-general-converter tag))))))
+	  (t (find-build-general-converter tag))))))
 (export 'build-converter)
 
 (defun build-translator (type)
