@@ -26,8 +26,8 @@
 
 (defstruct 
     (translator 
-      (:constructor make-translator (>giarg >value free gc array-length)))
-  >giarg >value free gc array-length)
+      (:constructor make-translator (>giarg >value free gc)))
+  >giarg >value free gc)
 
 (defun any->pointer (value)
   (typecase value
@@ -308,8 +308,6 @@
 		      (:unichar 'v-uint32)
 		      (t 'v-pointer))))
 	 (converter (build-converter type))
-	 (array-length (let ((length (type-info-get-array-length type)))
-			 (if (eql length -1) nil length)))
          (value->giarg
 	  (lambda (giarg value)
 	    (funcall (converter-set converter)
@@ -332,11 +330,15 @@
 		  (funcall free position length)
 		  (funcall free position))))))
     (make-translator value->giarg giarg->value giarg-free
-		     (converter-gc converter) array-length)))
+		     (converter-gc converter))))
 (export 'build-translator)
 
 (defmacro incf-giargs (giargs)
   `(setf ,giargs (cffi:mem-aptr ,giargs '(:union argument) 1)))
+
+(defun get-array-length (type)
+  (let ((length (type-info-get-array-length type)))
+    (if (eql length -1) nil length)))
 
 (defstruct arg-processor
   direction
@@ -354,7 +356,8 @@
    :clear #'dont-free))
 
 (defun build-arg-processor (arg)
-  (let* ((trans (build-translator (arg-info-get-type arg)))
+  (let* ((type (arg-info-get-type arg))
+	 (trans (build-translator type))
 	 (direction (arg-info-get-direction arg))
 	 (transfer (arg-info-get-ownership-transfer arg))
 	 (setup (translator->giarg trans))
@@ -368,7 +371,7 @@
 	 (gc (lambda (value)
 	       (funcall (translator-gc trans) value transfer))))
     (make-arg-processor :direction direction
-			:array-length (translator-array-length trans)
+			:array-length (get-array-length type)
 			:setup setup :>value arg->value :clear clear
 			:gc gc)))
 
@@ -393,7 +396,7 @@
 		  ((:nothing :container) #'dont-free)))
 	 (gc (lambda (value)
 	       (funcall (translator-gc trans) value transfer))))
-    (make-return-processor :array-length (translator-array-length trans)
+    (make-return-processor :array-length (get-array-length type)
 			   :>value (translator->value trans) :clear clear
 			   :gc gc)))
 
