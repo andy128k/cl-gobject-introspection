@@ -399,18 +399,14 @@
   clear
   gc)
 
-(defvar *raw-return-processor*
-  (make-return-processor
-   :>value #'giarg->pointer
-   :clear #'dont-free
-   :gc #'proc-dont-gc))
-
-(defun build-return-processor (func-info)
+(defun build-return-processor (func-info &key return-interface)
   (let* ((type (callable-info-get-return-type func-info))
 	 (transfer (callable-info-get-caller-owns func-info))
-	 (trans (build-translator type))
+	 (trans (if return-interface
+		    (build-interface-pointer-translator return-interface)
+		    (build-translator type)))
 	 (clear (ecase transfer
-		  (:everything (translator-free trans))
+		  (:everything (translator-giarg-free trans))
 		  ((:nothing :container) #'dont-free)))
 	 (gc (lambda (value)
 	       (funcall (translator-gc trans) value transfer))))
@@ -562,13 +558,12 @@
   (out-args :pointer) (n-out-args :int)
   (ret :pointer) (g-error :pointer))
 
-(defun build-function (info &key return-raw-pointer)
+(defun build-function (info &key return-interface)
   (multiple-value-bind (args-processor in-count out-count in-array-length-count)
       (get-args info)
     (let* ((name (info-get-name info))
-	   (ret-proc (if return-raw-pointer
-			 *raw-return-processor*
-			 (build-return-processor info))))
+	   (ret-proc (build-return-processor info :return-interface
+					     return-interface)))
       (lambda (&rest args)
 	(let ((args-state (make-args-state args-processor))
 	      out)
