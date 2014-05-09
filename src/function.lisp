@@ -58,6 +58,12 @@
 (defun proc-dont-gc (value)
   (declare (ignore value)))
 
+(defun build-raw-pointer-converter ()
+  (let* ((size (cffi:foreign-type-size :pointer)))
+    (make-converter size #'set-pointer #'get-pointer #'dont-free #'dont-gc)))
+
+(defvar *raw-pointer-converter* (build-raw-pointer-converter))
+
 (defun build-array-converter (type)
   (let* ((param-type (type-info-get-param-type type 0))
 	 (param-converter (build-converter param-type))
@@ -127,71 +133,68 @@
 			 item param-transfer))))))
     (make-converter nil set get free gc)))
 
-(defun build-interface-converter (type)
-  (let* ((pointer? (type-info-is-pointer type))
-	 (interface (type-info-get-interface type))
-	 (size (if (not pointer?)
-		   (typecase interface
-		     (struct-info
-		      (struct-info-get-size interface))
-		     (union-info
-		      (union-info-get-size interface))
-		     (t
-		      (cffi:foreign-type-size :uint)))
-		   (cffi:foreign-type-size :pointer)))
+(defun build-interface-pointer-converter (interface)
+  (let* ((size (cffi:foreign-type-size :pointer))
          (set
-	  (if pointer?
-	      (lambda (position value)
-		(set-pointer position (if value value (cffi:null-pointer))))
-	      (typecase interface
-		((or union-info struct-info)
-		 (lambda (position value)
-		   (copy-memory position (any->pointer value) size)))
-		(t
-		 (lambda (position value)
-		   (setf (cffi:mem-ref position :uint) value))))))
+	  (lambda (position value)
+	    (set-pointer position (if value value (cffi:null-pointer)))))
          (get
-           (if pointer?
-	       (typecase interface
-		 (struct-info
-		  (let ((class (find-build-interface interface)))
-		    (lambda (position)
-		      (let ((this (get-pointer position)))
-			(if (cffi:null-pointer-p this) nil
-			    (build-struct-ptr class this))))))
-		 (object-info
-		  (let ((class (find-build-interface interface)))
-		    (lambda (position)
-		      (let ((this (get-pointer position)))
-			(if (cffi:null-pointer-p this) nil
-			    (build-object-ptr class this))))))
-		 (t #'get-pointer))
-	       (typecase interface
-		 (struct-info
-		  (let ((struct-class (find-build-interface interface)))
-		    (lambda (position)
-		      (build-struct-ptr struct-class position))))
-		 (union-info
-		  (lambda (position) position))
-		 (t
-		  (lambda (position)
-		    (cffi:mem-ref position :uint))))))
-         (free
-	  (if pointer?
-	      #'dont-free
-	      (typecase interface
-		((or struct-info union-info)
-		 (lambda (position) (declare (ignore position)) t))
-		(t #'dont-free))))
+	  (typecase interface
+	    (struct-info
+	     (let ((class (find-build-interface interface)))
+	       (lambda (position)
+		 (let ((this (get-pointer position)))
+		   (if (cffi:null-pointer-p this) nil
+		       (build-struct-ptr class this))))))
+	    (object-info
+	     (let ((class (find-build-interface interface)))
+	       (lambda (position)
+		 (let ((this (get-pointer position)))
+		   (if (cffi:null-pointer-p this) nil
+		       (build-object-ptr class this))))))
+	    (t #'get-pointer)))
 	 (gc
-	  (if (and pointer? (typep interface 'object-info))
+	  (if (typep interface 'object-info)
 	      (lambda (value transfer)
 		(object-setup-gc value transfer) nil)
 	      #'dont-gc)))
-    (make-converter size set get free gc)))
+    (make-converter size set get #'dont-free gc)))
 
-(defun build-string-converter (type)
-  (declare (ignore type))
+(defun build-interface-converter (interface)
+  (let* ((size (typecase interface
+		 (struct-info
+		  (struct-info-get-size interface))
+		 (union-info
+		  (union-info-get-size interface))
+		 (t
+		  (cffi:foreign-type-size :uint))))
+         (set
+	  (typecase interface
+	    ((or union-info struct-info)
+	     (lambda (position value)
+	       (copy-memory position (any->pointer value) size)))
+	    (t
+	     (lambda (position value)
+	       (setf (cffi:mem-ref position :uint) value)))))
+         (get
+	  (typecase interface
+	    (struct-info
+	     (let ((struct-class (find-build-interface interface)))
+	       (lambda (position)
+		 (build-struct-ptr struct-class position))))
+	    (union-info
+	     (lambda (position) position))
+	    (t
+	     (lambda (position)
+	       (cffi:mem-ref position :uint)))))
+         (free
+	  (typecase interface
+	    ((or struct-info union-info)
+	     (lambda (position) (declare (ignore position)) t))
+	    (t #'dont-free))))
+    (make-converter size set get free #'dont-gc)))
+
+(defun build-string-converter ()
   (let* ((size (cffi:foreign-type-size :pointer))
          (set
 	  (lambda (position value)
@@ -206,73 +209,70 @@
 	    (cffi:foreign-free (get-pointer position)))))
     (make-converter size set get free #'dont-gc)))
 
-(defun build-void-converter (type)
-  (let* ((pointer? (type-info-is-pointer type))
-	 (size (if pointer? (cffi:foreign-type-size :pointer)))
-	 (set
-	  (if pointer?
-	      #'set-pointer
-	      (lambda (position value)
-		(declare (ignore value))
-		(set-pointer position (cffi:null-pointer)))))
-         (get
-	  (if pointer?
-	      #'get-pointer
-	      (lambda (position) (declare (ignore position)) nil)))
-         (free
-	  #'dont-free))
-    (make-converter size set get free #'dont-gc)))
+(defvar *string-converter* (build-string-converter))
 
-(defun build-general-converter (type)
-  (let* ((tag (type-info-get-tag type))
-         (pointer? (type-info-is-pointer type))
-	 (foreign-type (if pointer? :pointer
-			   (case tag
-			     (:boolean :boolean)
-			     (:int8 :int8)
-			     (:uint8 :uint8)
-			     (:int16 :int16)
-			     (:uint16 :uint16)
-			     (:int32 :int32)
-			     (:uint32 :uint32)
-			     (:int64 :int64)
-			     (:uint64 :uint64)
-			     (:short :short)
-			     (:ushort :ushort)
-			     (:int :int)
-			     (:uint :uint)
-			     (:long :long)
-			     (:ulong :ulong)
-			     (:sszie :long)
-			     (:szie :ulong)
-			     (:float :float)
-			     (:double :double)
-			     (:time-t :long)
-			     (:gtype :ulong)
-			     (:unichar :int32)
-			     (t :pointer))))
+(defun build-void-converter ()
+  (let* ((set
+	  (lambda (position value)
+	    (declare (ignore value))
+	    (set-pointer position (cffi:null-pointer))))
+         (get
+	  (lambda (position) (declare (ignore position)) nil)))
+    (make-converter 0 set get #'dont-free #'dont-gc)))
+
+(defvar *void-converter* (build-void-converter))
+
+(defun build-general-converter (tag)
+  (let* ((foreign-type (case tag
+			 (:boolean :boolean)
+			 (:int8 :int8)
+			 (:uint8 :uint8)
+			 (:int16 :int16)
+			 (:uint16 :uint16)
+			 (:int32 :int32)
+			 (:uint32 :uint32)
+			 (:int64 :int64)
+			 (:uint64 :uint64)
+			 (:short :short)
+			 (:ushort :ushort)
+			 (:int :int)
+			 (:uint :uint)
+			 (:long :long)
+			 (:ulong :ulong)
+			 (:sszie :long)
+			 (:szie :ulong)
+			 (:float :float)
+			 (:double :double)
+			 (:time-t :long)
+			 (:gtype :ulong)
+			 (:unichar :int32)
+			 (t :pointer)))
 	 (size (cffi:foreign-type-size foreign-type))
          (set
-	  (if pointer?
-	      #'set-pointer
-	      (lambda (position value)
-		(setf (cffi:mem-ref position foreign-type) value))))
+	  (lambda (position value)
+	    (setf (cffi:mem-ref position foreign-type) value)))
          (get
-           (if pointer?
-	       #'get-pointer
-	       (lambda (position)
-		 (cffi:mem-ref position foreign-type))))
-         (free
-	  #'dont-free))
-    (make-converter size set get free #'dont-gc)))
+	  (lambda (position)
+	    (cffi:mem-ref position foreign-type))))
+    (make-converter size set get #'dont-free #'dont-gc)))
 
 (defun build-converter (type)
-  (case (type-info-get-tag type)
-    (:array (build-array-converter type))
-    (:interface (build-interface-converter type))
-    ((:utf8 :filename) (build-string-converter type))
-    (:void (build-void-converter type))
-    (t (build-general-converter type))))
+  (let ((pointer? (type-info-is-pointer type))
+	(tag (type-info-get-tag type)))
+    (if pointer?
+	(case tag
+	  (:array (build-array-converter type))
+	  (:interface
+	   (build-interface-pointer-converter (type-info-get-interface type)))
+	  ((:utf8 :filename) *string-converter*)
+	  (t *raw-pointer-converter*))
+	(case tag
+	  (:interface
+	   (build-interface-converter (type-info-get-interface type)))
+	  (:void *void-converter*)
+	  ((:array :utf8 :filename)
+	   (error "array, utf8, filename must be pointer"))
+	  (t (build-general-converter tag))))))
 (export 'build-converter)
 
 (defun build-translator (type)
