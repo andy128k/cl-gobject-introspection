@@ -67,13 +67,17 @@
 		     (otherwise 'base-info))
 		   :ptr pointer)))
 
+(cffi:defcfun g-base-info-ref :pointer
+  (info :pointer))
 (cffi:defcfun g-base-info-unref :void
   (info :pointer))
 
-(defun info-ffi-finalize (info)
+(defun info-ffi-finalize (info &optional (transfer-ownership t))
   (if info
       (let* ((pointer (slot-value info 'ptr))
 	     (addr (cffi:pointer-address pointer)))
+	(if (null transfer-ownership)
+	    (g-base-info-ref pointer))
 	(tg:finalize pointer (lambda ()
 			       (g-base-info-unref (cffi:make-pointer addr))))))
   info)
@@ -130,8 +134,10 @@
 
 (export 'info-get-attributes)
 
-(cffi:defcfun (info-get-container "g_base_info_get_container") info-ffi
+(cffi:defcfun g-base-info-get-container info-ffi
   (info info-ffi))
+(defun info-get-container (info)
+  (info-ffi-finalize (g-base-info-get-container info) nil))
 (export 'info-get-container)
 
 (cffi:defcfun (info-get-typelib "g_base_info_get_typelib") typelib-type
