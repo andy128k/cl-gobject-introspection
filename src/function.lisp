@@ -85,7 +85,7 @@
 
 (defvar *raw-pointer-translator* (build-raw-pointer-translator))
 
-(defun build-array-translator (type)
+(defun build-c-array-translator (type)
   (let* ((param-type (type-info-get-param-type type 0))
 	 (param-translator (build-translator param-type))
 	 (param-size (translator-size param-translator))
@@ -95,56 +95,46 @@
 	 (zero-terminated? (type-info-is-zero-terminated type))
 	 (fixed-size (let ((size (type-info-get-array-fixed-size type)))
 		       (if (/= -1 size) size)))
-	 (array-type (type-info-get-array-type type))
          (set
-	  (case array-type
-	    (:c
-	     (lambda (position value)
-	       (let* ((length (if fixed-size fixed-size
-				  (+ (length value)
-				     (if zero-terminated? 1 0))))
-		      (array (cffi:foreign-alloc
-			      :int8 :count (* length param-size))))
-		 (loop
-		    :for pos = array :then (cffi:inc-pointer pos param-size)
-		    :for i :below (if zero-terminated? (1- length) length)
-		    :for element :in value
-		    :do (funcall param-set pos element)
-		    :finally (if zero-terminated?
-				 (zero-memory pos param-size)))
-		 (set-pointer position array))))
-	    (t #'set-pointer)))
+	  (lambda (position value)
+	    (let* ((length (if fixed-size fixed-size
+			       (+ (length value)
+				  (if zero-terminated? 1 0))))
+		   (array (cffi:foreign-alloc
+			   :int8 :count (* length param-size))))
+	      (loop
+		 :for pos = array :then (cffi:inc-pointer pos param-size)
+		 :for i :below (if zero-terminated? (1- length) length)
+		 :for element :in value
+		 :do (funcall param-set pos element)
+		 :finally (if zero-terminated?
+			      (zero-memory pos param-size)))
+	      (set-pointer position array))))
          (get
-	  (case array-type
-	    (:c
-	     (lambda (position &optional length)
-	       (if (and fixed-size (or (null length) (> length fixed-size)))
-		   (setf length fixed-size))
-	       (loop
-		  :for i :upfrom 0
-		  :for pos = (get-pointer position)
-		  :then (cffi:inc-pointer pos param-size)
-		  :until (and (or (not zero-terminated?) length) (>= i length))
-		  :until (and zero-terminated? (zero? pos param-size))
-		  :collect (funcall param-get pos))))
-	    (t #'get-pointer)))
+	  (lambda (position &optional length)
+	    (if (and fixed-size (or (null length) (> length fixed-size)))
+		(setf length fixed-size))
+	    (loop
+	       :for i :upfrom 0
+	       :for pos = (get-pointer position)
+	       :then (cffi:inc-pointer pos param-size)
+	       :until (and (or (not zero-terminated?) length) (>= i length))
+	       :until (and zero-terminated? (zero? pos param-size))
+	       :collect (funcall param-get pos))))
          (free
-	  (case array-type
-	    (:c
-	     (lambda (position &optional length)
-	       (if (and fixed-size (or (null length) (> length fixed-size)))
-		   (setf length fixed-size))
-	       (let ((array (get-pointer position)))
-		 (loop
-		    :for i :upfrom 0
-		    :for pos = array
-		    :then (cffi:inc-pointer pos param-size)
-		    :until (and (or (not zero-terminated?) length)
-				(>= i length))
-		    :until (and zero-terminated? (zero? pos param-size))
-		    :do (if (funcall param-free pos) (return t))
-		    :finally (cffi:foreign-free array)))))
-	    (t #'dont-free)))
+	  (lambda (position &optional length)
+	    (if (and fixed-size (or (null length) (> length fixed-size)))
+		(setf length fixed-size))
+	    (let ((array (get-pointer position)))
+	      (loop
+		 :for i :upfrom 0
+		 :for pos = array
+		 :then (cffi:inc-pointer pos param-size)
+		 :until (and (or (not zero-terminated?) length)
+			     (>= i length))
+		 :until (and zero-terminated? (zero? pos param-size))
+		 :do (if (funcall param-free pos) (return t))
+		 :finally (cffi:foreign-free array)))))
 	 (gc
 	  (lambda (value transfer)
 	    (let ((param-transfer (if (eq transfer :container) :nothing
@@ -156,6 +146,11 @@
 	(build-giarg-functions 'v-pointer set get free)
       (make-translator nil set get free gc
 		       value->giarg giarg->value giarg-free))))
+
+(defun build-array-translator (type)
+  (case (type-info-get-array-type type)
+    (:c (build-c-array-translator type))
+    (t *raw-pointer-translator*)))
 
 (defun build-object-pointer-translator (object-class)
   (let* ((size (cffi:foreign-type-size :pointer))
