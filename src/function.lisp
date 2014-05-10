@@ -190,12 +190,25 @@
       (make-translator size set get #'dont-free #'dont-gc
 		       value->giarg giarg->value giarg-free))))
 
+(defun find-build-interface-translator (interface cache builder)
+  (let* ((class (find-build-interface interface))
+	 (translator (gethash class cache)))
+    (if translator
+	translator
+	(setf (gethash class cache)
+	      (funcall builder class)))))
+
+(defvar *object-pointer-translator-cache* (make-hash-table))
+(defvar *struct-pointer-translator-cache* (make-hash-table))
+
 (defun build-interface-pointer-translator (interface)
   (typecase interface
-    (object-info (build-object-pointer-translator
-		  (find-build-interface interface)))
-    (struct-info (build-struct-pointer-translator
-		  (find-build-interface interface)))
+    (object-info (find-build-interface-translator
+		  interface *object-pointer-translator-cache*
+		  #'build-object-pointer-translator))
+    (struct-info (find-build-interface-translator
+		  interface *struct-pointer-translator-cache*
+		  #'build-struct-pointer-translator))
     (t *raw-pointer-translator*)))
 
 (defun build-struct-translator (struct-class)
@@ -223,10 +236,13 @@
 	  (lambda (position) (declare (ignore position)) t)))
     (make-translator size set get free #'dont-gc nil nil nil)))
 
+(defvar *struct-translator-cache* (make-hash-table))
+
 (defun build-interface-translator (interface)
   (typecase interface
-    (struct-info (build-struct-translator
-		  (find-build-interface interface)))
+    (struct-info (find-build-interface-translator
+		  interface *struct-translator-cache*
+		  #'build-struct-translator))
     (union-info (build-union-translator interface))
     (t (find-build-general-translator :uint))))
 
