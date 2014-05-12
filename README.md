@@ -147,23 +147,7 @@ meaning.  Invoke can be used for the more concise syntax.
 
 will call method "add" with argument in variable "button".
 
-## 4.1. Pointer to object
-
-To get C pointer to an object, use object-this.
-
-```racket
-(gir::object-this *window*)
-```
-
-It is possible to make an object from a pointer:
-
-```racket
-(defvar *window-from-ptr* (funcall (gir:nget *gtk* "Window") window-ptr))
-```
-
-`window-ptr` should be `cffi:foreign-pointer` here.
-
-## 4.2. Fields
+## 4.1. Fields
 
 Getting and setting field values are done with field and setf.
 
@@ -180,7 +164,7 @@ Getting and setting field values are done with field and setf.
 But you cannot set with :set-field! complex types such as structs,
 unions or even strings. It is a restriction of GObjectIntrospection.
 
-## 4.3. Properties
+## 4.2. Properties
 
 Getting and setting property are done with property and setf.
 
