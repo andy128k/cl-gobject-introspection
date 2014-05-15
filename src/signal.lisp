@@ -36,11 +36,15 @@
          (loop
             :for i :below n-values
             :collect 
-            (let ((gvalue (cffi:mem-aptr 
-                           params 
-                           '(:struct g-value-struct)
-                           i)))
-              (gvalue->lisp/free gvalue (gvalue-gtype gvalue) :no-free t)))))
+            (let* ((gvalue (cffi:mem-aptr
+			    params
+			    '(:struct g-value-struct)
+			    i))
+		   (val (gvalue->lisp/free gvalue (gvalue-gtype gvalue)
+					   :no-free t)))
+	      (if (typep val 'object)
+		  (object-setup-gc val :nothing)
+		  val)))))
     (let ((res (apply lisp-func lisp-params)))
       (unless (cffi:null-pointer-p return)
         (set-value! return (gvalue-gtype return) res)))))
