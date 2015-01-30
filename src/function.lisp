@@ -21,9 +21,9 @@
 
 (defstruct
     (translator
-      (:constructor make-translator (size set get free gc >giarg >value
+      (:constructor make-translator (size set get alloc free gc >giarg >value
 				     giarg-free)))
-  size set get free gc >giarg >value giarg-free)
+  size set get alloc free gc >giarg >value giarg-free)
 
 (defun any->pointer (value)
   (typecase value
@@ -80,7 +80,7 @@
 
 (defun build-raw-pointer-translator ()
   (let* ((size (cffi:foreign-type-size :pointer)))
-    (make-translator size #'set-pointer #'get-pointer #'dont-free #'dont-gc
+    (make-translator size #'set-pointer #'get-pointer nil #'dont-free #'dont-gc
 		     #'pointer->giarg #'giarg->pointer #'dont-free)))
 
 (defvar *raw-pointer-translator* (build-raw-pointer-translator))
@@ -144,7 +144,7 @@
 			 item param-transfer))))))
     (multiple-value-bind (value->giarg giarg->value giarg-free)
 	(build-giarg-functions 'v-pointer set get free)
-      (make-translator nil set get free gc
+      (make-translator nil set get nil free gc
 		       value->giarg giarg->value giarg-free))))
 
 (defun build-array-translator (type)
@@ -167,7 +167,7 @@
 	    (object-setup-gc value transfer) nil)))
     (multiple-value-bind (value->giarg giarg->value giarg-free)
 	(build-giarg-functions 'v-pointer set get #'dont-free)
-      (make-translator size set get #'dont-free gc
+      (make-translator size set get nil #'dont-free gc
 		       value->giarg giarg->value giarg-free))))
 
 (defun build-struct-pointer-translator (struct-class)
@@ -182,7 +182,7 @@
 		  (build-struct-ptr struct-class this))))))
     (multiple-value-bind (value->giarg giarg->value giarg-free)
 	(build-giarg-functions 'v-pointer set get #'dont-free)
-      (make-translator size set get #'dont-free #'dont-gc
+      (make-translator size set get nil #'dont-free #'dont-gc
 		       value->giarg giarg->value giarg-free))))
 
 (defun find-build-interface-translator (interface cache builder)
@@ -216,9 +216,23 @@
          (get
 	  (lambda (position)
 	    (build-struct-ptr struct-class position)))
+	 (set-pointer
+	  (lambda (position value)
+	    (set-pointer position (if value value (cffi:null-pointer)))))
+	 (get-pointer
+	  (lambda (position)
+	    (let ((this (get-pointer position)))
+	      (if (cffi:null-pointer-p this) nil
+		  (build-struct-ptr struct-class this)))))
+	 (alloc
+	  (lambda ()
+	    (%allocate-struct struct-class)))
          (free
 	  (lambda (position) (declare (ignore position)) t)))
-    (make-translator size set get free #'dont-gc nil nil nil)))
+    (multiple-value-bind (value->giarg giarg->value giarg-free)
+	(build-giarg-functions 'v-pointer set-pointer get-pointer #'dont-free)
+      (make-translator size set get alloc free #'dont-gc
+		       value->giarg giarg->value giarg-free))))
 
 (defun build-union-translator (interface)
   (let* ((size (union-info-get-size interface))
@@ -229,7 +243,7 @@
 	  (lambda (position) position))
          (free
 	  (lambda (position) (declare (ignore position)) t)))
-    (make-translator size set get free #'dont-gc nil nil nil)))
+    (make-translator size set get nil free #'dont-gc nil nil nil)))
 
 (defvar *struct-translator-cache* (make-hash-table))
 
@@ -256,7 +270,7 @@
 	    (cffi:foreign-free (get-pointer position)))))
     (multiple-value-bind (value->giarg giarg->value giarg-free)
 	(build-giarg-functions 'v-pointer set get free)
-      (make-translator size set get free #'dont-gc
+      (make-translator size set get nil free #'dont-gc
 		       value->giarg giarg->value giarg-free))))
 
 (defvar *string-translator* (build-string-translator))
@@ -270,7 +284,7 @@
 	  (lambda (position) (declare (ignore position)) nil)))
     (multiple-value-bind (value->giarg giarg->value giarg-free)
 	(build-giarg-functions 'v-pointer set get #'dont-free)
-      (make-translator nil set get #'dont-free #'dont-gc
+      (make-translator nil set get nil #'dont-free #'dont-gc
 		       value->giarg giarg->value giarg-free))))
 
 (defvar *void-translator* (build-void-translator))
@@ -337,7 +351,7 @@
 	    (cffi:mem-ref position foreign-type))))
     (multiple-value-bind (value->giarg giarg->value giarg-free)
 	(build-giarg-functions field set get #'dont-free)
-      (make-translator size set get #'dont-free #'dont-gc
+      (make-translator size set get nil #'dont-free #'dont-gc
 		       value->giarg giarg->value giarg-free))))
 
 (defvar *general-translator-cache* (make-hash-table))
@@ -380,6 +394,7 @@
   for-array-length?
   array-length
   setup
+  setup-out
   >value
   clear
   gc)
@@ -395,7 +410,17 @@
 	 (trans (build-translator type))
 	 (direction (arg-info-get-direction arg))
 	 (transfer (arg-info-get-ownership-transfer arg))
+	 (caller-allocates (arg-info-is-caller-allocates arg))
 	 (setup (translator->giarg trans))
+	 (setup-out (if caller-allocates
+			(lambda (arg-state giarg-out value-out)
+			  (declare (ignore value-out))
+			  (setf (arg-state-giarg arg-state) giarg-out)
+			  (pointer->giarg giarg-out
+					  (funcall (translator-alloc trans))))
+			(lambda (arg-state giarg-out value-out)
+			  (setf (arg-state-giarg arg-state) value-out)
+			  (pointer->giarg giarg-out value-out))))
 	 (arg->value (translator->value trans))
 	 (clear (ecase direction
 		  (:in (translator-giarg-free trans))
@@ -407,8 +432,8 @@
 	       (funcall (translator-gc trans) value transfer))))
     (make-arg-processor :direction direction
 			:array-length (get-array-length type)
-			:setup setup :>value arg->value :clear clear
-			:gc gc)))
+			:setup setup :setup-out setup-out :>value arg->value
+			:clear clear :gc gc)))
 
 (defstruct return-processor
   array-length
@@ -514,8 +539,8 @@
 	    (incf-giargs outp)
 	    (incf-giargs voutp))
 	   (:out
-	    (setf (arg-state-giarg arg-state) voutp)
-	    (pointer->giarg outp voutp)
+	    (funcall (arg-processor-setup-out proc)
+		     arg-state outp voutp)
 	    (incf-giargs outp)
 	    (incf-giargs voutp)))))
 
