@@ -25,11 +25,13 @@
 		       (make-hash-table :test 'equal)
 		       (make-hash-table :test 'equal))))
 
-(defun allocate-struct (struct-class)
+(defun %allocate-struct (struct-class)
   (let* ((info (struct-class-info struct-class))
-	 (size (struct-info-get-size info))
-	 (this (cffi:foreign-alloc :int8 :initial-element 0 :count size)))
-    (build-struct-ptr struct-class this)))
+	 (size (struct-info-get-size info)))
+    (cffi:foreign-alloc :int8 :initial-element 0 :count size)))
+
+(defun allocate-struct (struct-class)
+  (build-struct-ptr struct-class (%allocate-struct struct-class)))
 
 (defun struct-class-build-constructor (struct-class name)
   (let* ((info (struct-class-info struct-class))
