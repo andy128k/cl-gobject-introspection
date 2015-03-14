@@ -99,4 +99,3 @@
                                       (cffi:null-pointer) 
                                       flags)))))
     handler-id))
-(export 'connect)

@@ -96,19 +96,15 @@
 
 (defun info-get-type (info)
   (g-base-info-get-type (info-ptr info)))
-(export 'info-get-type)
 
 (cffi:defcfun (info-get-name "g_base_info_get_name") :string
   (info info-ffi))
-(export 'info-get-name)
 
 (cffi:defcfun (info-get-namespace "g_base_info_get_namespace") :string
   (info info-ffi))
-(export 'info-get-namespace)
 
 (cffi:defcfun (info-is-deprecated "g_base_info_is_deprecated") :boolean
   (info info-ffi))
-(export 'info-is-deprecated)
 
 (cffi:defcfun (info-get-attribute "g_base_info_get_attribute") :string
   (info info-ffi)
@@ -132,20 +128,15 @@
 	 ;; foreign-string-to-lisp
 	 (pprint (cons name value))))))
 
-(export 'info-get-attributes)
-
 (cffi:defcfun g-base-info-get-container info-ffi
   (info info-ffi))
 (defun info-get-container (info)
   (info-ffi-finalize (g-base-info-get-container info) nil))
-(export 'info-get-container)
 
 (cffi:defcfun (info-get-typelib "g_base_info_get_typelib") typelib-type
   (info info-ffi))
-(export 'info-get-typelib)
 
 (cffi:defcfun (info-equal "g_base_info_equal") :boolean
   (info1 info-ffi)
   (info2 info-ffi))
-(export 'info-equal)
 

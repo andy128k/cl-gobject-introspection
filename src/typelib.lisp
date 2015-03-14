@@ -28,11 +28,8 @@
 	  (setf (cffi:mem-aref buffer :uint8 i) b))
     (make-typelib :ptr (with-gerror err (g-typelib-new-from-memory buffer (length source) err)))))
 
-(export 'typelib-new)
-
 (cffi:defcfun (typelib-free "g_typelib_free") :void
   (typelib typelib-type))
-(export 'typelib-free)
 
 (defmacro with-typelib (var source &body body)
   `(let ((,var (typelib-new ,source)))
@@ -40,8 +37,6 @@
 	  (progn
 	    ,@body)
        (typelib-free ,var))))
-
-(export 'with-typelib)
 
 (defmacro with-typelibs ((&rest var-defs) &body body)
   `(let ,(iter (for vs on var-defs by #'cddr)
@@ -51,8 +46,6 @@
 	    ,@body)
        ,@(iter (for vs on var-defs by #'cddr)
 	       (collect `(typelib-free ,(first vs)))))))
-
-(export 'with-typelibs)
 
 (cffi:defcfun g-typelib-symbol :boolean
   (typelib typelib-type)
@@ -64,9 +57,5 @@
     (when (g-typelib-symbol typelib symbol-name s)
       (cffi:mem-ref s :pointer))))
 
-(export 'typelib-symbol)
-
 (cffi:defcfun (typelib-namespace "g_typelib_get_namespace") :string
   (typelib typelib-type))
-(export 'typelib-namespace)
-

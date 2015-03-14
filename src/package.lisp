@@ -7,8 +7,6 @@
   (:shadow #:get-properties)
   (:export 
    #:argument
-   #:enum-info-get-methods
-   #:build-translator
    #:base-info
    #:type-info
    #:callable-info
@@ -29,113 +27,126 @@
    #:constant-info
    #:arg-info
    
-   #:object-info-get-type-name 
-   #:registered-type-info-get-type-init
-   #:interface-info-get-prerequisites
-   #:type-info-get-interface
-   #:info-get-namespace
-   #:type-info-get-array-fixed-size
-   #:type-info-get-array-length
-   #:type-tag-to-string #:field-info-get-size
-   #:object-info-get-interfaces
-   #:vfunc-info-get-signal
    #:repository-get-dependencies
-   #:object-info-get-class-struct
-   #:info-get-name #:typelib-symbol
-   #:info-get-typelib
-   #:function-info-get-property
-   #:field-info-get-type
-   #:arg-info-get-ownership-transfer
-   #:vfunc-info-get-offset
-   #:type-info-is-zero-terminated
    #:repository-is-registered
    #:repository-find-by-gtype
-   #:union-info-get-discriminators
-   #:object-info-get-type-init
-   #:union-info-get-alignment
-   #:callable-info-get-args
-   #:arg-info-may-be-null
-   #:repository-require #:repository-new
-   #:field-info-get-offset
-   #:info-get-attributes
-   #:struct-info-get-fields
+   #:repository-require
    #:repository-get-shared-library
-   #:object-info-find-method
-   #:struct-info-is-gtype-struct
-   #:property-info-get-flags
-   #:arg-info-is-optional
-   #:property-info-get-type
-   #:union-info-is-discriminated
-   #:g-object-info-get-fields
-   #:struct-info-find-method
+   #:repository-new
    #:repository-get-version
-   #:info-get-container
-   #:object-info-get-abstract
-   #:object-info-get-constants
-   #:interface-info-find-method
-   #:arg-info-get-destroy
-   #:arg-info-is-caller-allocates
-   #:type-info-is-pointer
-   #:function-info-get-vfunc
-   #:object-info-get-parent
    #:repository-prepend-search-path
    #:repository-load-typelib
-   #:callable-info-may-return-null
-   #:with-typelibs #:repository-get-c-prefix
-   #:interface-info-get-signals
-   #:enum-info-get-storage-type
-   #:enum-info-get-values
-   #:union-info-get-discriminator-type
-   #:typelib-namespace
-   #:interface-info-get-iface-struct
-   #:type-info-get-param-type
-   #:callable-info-get-return-type
-   #:union-info-get-methods
-   #:type-info-get-tag #:value-info-get-value
-   #:object-info-get-signals
+   #:repository-get-c-prefix
    #:repository-find-by-name
-   #:object-info-find-vfunc
-   #:struct-info-get-methods
-   #:arg-info-get-scope
-   #:vfunc-info-get-invoker #:with-typelib
-   #:registered-type-info-get-type-name
    #:repository-get-infos
-   #:interface-info-get-vfuncs #:typelib-new
-   #:info-equal #:union-info-get-size
-   #:interface-info-find-vfunc
-   #:object-info-get-methods
-   #:signal-info-get-class-closure
    #:repository-get-typelib-path
    #:repository-get-loaded-namespaces
-   #:struct-info-get-size
-   #:vfunc-info-get-flags
-   #:arg-info-get-direction
    #:repository-get-search-path
-   #:signal-info-true-stops-emit
-   #:constant-info-get-value
-   #:signal-info-get-flags
-   #:arg-info-get-closure
-   #:info-is-deprecated
-   #:union-info-find-method
-   #:callable-info-get-caller-owns
-   #:function-info-get-flags
-   #:field-info-get-flags #:typelib-free
-   #:struct-info-is-foreign
-   #:arg-info-is-return-value
-   #:union-info-get-fields
-   #:union-info-get-discriminator-offset
-   #:constant-info-get-type
    #:repository-get-default
-   #:function-info-get-symbol
+   #:info-get-name
+   #:info-get-type
+   #:info-get-namespace
+   #:info-is-deprecated
+   #:info-get-typelib
+   #:info-get-attributes
+   #:info-get-container
+   #:info-equal
+   #:callable-info-get-args
+   #:callable-info-may-return-null
+   #:callable-info-get-return-type
+   #:callable-info-get-caller-owns
+   #:arg-info-get-ownership-transfer
+   #:arg-info-may-be-null
+   #:arg-info-is-optional
+   #:arg-info-get-destroy
+   #:arg-info-is-caller-allocates
+   #:arg-info-get-scope
+   #:arg-info-get-direction
+   #:arg-info-get-closure
+   #:arg-info-is-return-value
+   #:arg-info-get-type
+   #:type-tag-to-string
+   #:type-info-get-interface
+   #:type-info-get-array-fixed-size
+   #:type-info-get-array-length
+   #:type-info-is-zero-terminated
+   #:type-info-is-pointer
+   #:type-info-get-param-type
+   #:type-info-get-tag
    #:type-info-get-array-type
+   #:value-info-get-value
+   #:field-info-get-size
+   #:field-info-get-type
+   #:field-info-get-offset
+   #:field-info-get-flags
+   #:union-info-get-alignment
+   #:union-info-is-discriminated
+   #:union-info-get-discriminator-type
+   #:union-info-get-discriminator-offset
+   #:union-info-get-discriminators
+   #:union-info-get-methods
+   #:union-info-get-size
+   #:union-info-find-method
+   #:union-info-get-fields
+   #:struct-info-get-fields
+   #:struct-info-is-gtype-struct
+   #:struct-info-find-method
+   #:struct-info-get-methods
+   #:struct-info-get-size
+   #:struct-info-is-foreign
+   #:struct-info-get-alignment
+   #:registered-type-info-get-type-init
+   #:registered-type-info-get-type-name
+   #:registered-type-info-get-g-type
+   #:enum-info-get-storage-type
+   #:enum-info-get-values
+   #:enum-info-get-methods
+   #:object-info-get-type-name
+   #:object-info-get-interfaces
+   #:object-info-get-class-struct
+   #:object-info-get-type-init
+   #:object-info-find-method
+   #:object-info-get-abstract
+   #:object-info-get-constants
+   #:object-info-get-parent
+   #:object-info-get-signals
+   #:object-info-find-vfunc
+   #:object-info-get-methods
    #:object-info-get-vfuncs
    #:object-info-get-properties
+   #:object-info-get-fields
+   #:interface-info-get-prerequisites
+   #:interface-info-find-method
+   #:interface-info-get-signals
+   #:interface-info-get-iface-struct
+   #:interface-info-get-vfuncs
+   #:interface-info-find-vfunc
    #:interface-info-get-properties
-   #:registered-type-info-get-g-type
    #:interface-info-get-methods
-   #:arg-info-get-type #:info-get-type
-   #:struct-info-get-alignment
    #:interface-info-get-constants
+   #:property-info-get-flags
+   #:property-info-get-type
+   #:signal-info-get-class-closure
+   #:signal-info-true-stops-emit
+   #:signal-info-get-flags
+   #:vfunc-info-get-signal
+   #:vfunc-info-get-offset
+   #:vfunc-info-get-invoker
+   #:vfunc-info-get-flags
+   #:constant-info-get-value
+   #:constant-info-get-type
+   #:function-info-get-property
+   #:function-info-get-vfunc
+   #:function-info-get-flags
+   #:function-info-get-symbol
+   #:with-typelib
+   #:typelib-new
+   #:typelib-symbol
+   #:with-typelibs
+   #:typelib-namespace
+   #:typelib-free
+
+   #:build-translator
 
    #:ffi
    #:nget
@@ -143,4 +154,5 @@
    #:field
    #:property
    #:allocate-struct
-   #:free-struct))
+   #:free-struct
+   #:connect))
