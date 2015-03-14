@@ -380,7 +380,6 @@
 	  ((:array :utf8 :filename)
 	   (error "array, utf8, filename must be pointer"))
 	  (t (find-build-general-translator tag))))))
-(export 'build-translator)
 
 (defmacro incf-giargs (giargs)
   `(setf ,giargs (cffi:mem-aptr ,giargs '(:union argument) 1)))

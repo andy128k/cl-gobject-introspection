@@ -25,7 +25,6 @@
   (v-size :uint)
   (v-string :pointer) ;; if :string, it frees pointer after setting it
   (v-pointer :pointer))
-(export 'argument)
 
 (defun argument->lisp-value (argument length type)
   (declare (ignore length))

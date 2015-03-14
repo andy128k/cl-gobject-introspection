@@ -108,8 +108,7 @@
        (defun ,name (info)
 	 (let ((n (,get-count-name info)))
 	   (iter (for i from 0 below n)
-		 (collect (info-ffi-finalize (,get-item info i))))))
-       (export ',name))))
+		 (collect (info-ffi-finalize (,get-item info i)))))))))
 
 
 (cffi:defbitfield connect-flags
