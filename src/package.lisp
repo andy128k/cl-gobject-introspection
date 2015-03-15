@@ -148,7 +148,7 @@
 
    #:build-translator
 
-   #:ffi
+   #:ffi #:require-namespace
    #:nget
    #:invoke
    #:field

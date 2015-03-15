@@ -43,6 +43,10 @@
 	(setf (gethash namespace *namespace-cache*)
 	      (build-ffi namespace version)))))
 
+(declaim (inline require-namespace))
+(defun require-namespace (namespace &optional version)
+  (ffi namespace version))
+
 (defmethod nsget ((namespace namespace) name)
    (let* ((nsname (namespace-name namespace))
 	  (interface-cache (namespace-interface-cache namespace))
