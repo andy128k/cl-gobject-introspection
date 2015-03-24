@@ -179,10 +179,13 @@
 	  (lambda (position)
 	    (let ((this (get-pointer position)))
 	      (if (cffi:null-pointer-p this) nil
-		  (build-struct-ptr struct-class this))))))
+		  (build-struct-ptr struct-class this)))))
+	 (alloc
+	  (lambda ()
+	    (%allocate-struct struct-class))))
     (multiple-value-bind (value->giarg giarg->value giarg-free)
 	(build-giarg-functions 'v-pointer set get #'dont-free)
-      (make-translator size set get nil #'dont-free #'dont-gc
+      (make-translator size set get alloc #'dont-free #'dont-gc
 		       value->giarg giarg->value giarg-free))))
 
 (defun find-build-interface-translator (interface cache builder)
@@ -216,23 +219,9 @@
          (get
 	  (lambda (position)
 	    (build-struct-ptr struct-class position)))
-	 (set-pointer
-	  (lambda (position value)
-	    (set-pointer position (if value value (cffi:null-pointer)))))
-	 (get-pointer
-	  (lambda (position)
-	    (let ((this (get-pointer position)))
-	      (if (cffi:null-pointer-p this) nil
-		  (build-struct-ptr struct-class this)))))
-	 (alloc
-	  (lambda ()
-	    (%allocate-struct struct-class)))
          (free
 	  (lambda (position) (declare (ignore position)) t)))
-    (multiple-value-bind (value->giarg giarg->value giarg-free)
-	(build-giarg-functions 'v-pointer set-pointer get-pointer #'dont-free)
-      (make-translator size set get alloc free #'dont-gc
-		       value->giarg giarg->value giarg-free))))
+    (make-translator size set get nil free #'dont-gc nil nil nil)))
 
 (defun build-union-translator (interface)
   (let* ((size (union-info-get-size interface))
@@ -363,8 +352,8 @@
 	(setf (gethash tag *general-translator-cache*)
 	      (build-general-translator tag)))))
 
-(defun build-translator (type)
-  (let ((pointer? (type-info-is-pointer type))
+(defun build-translator (type &key force-pointer)
+  (let ((pointer? (or force-pointer (type-info-is-pointer type)))
 	(tag (type-info-get-tag type)))
     (if pointer?
 	(case tag
@@ -406,10 +395,10 @@
 
 (defun build-arg-processor (arg)
   (let* ((type (arg-info-get-type arg))
-	 (trans (build-translator type))
+	 (caller-allocates (arg-info-is-caller-allocates arg))
+	 (trans (build-translator type :force-pointer caller-allocates))
 	 (direction (arg-info-get-direction arg))
 	 (transfer (arg-info-get-ownership-transfer arg))
-	 (caller-allocates (arg-info-is-caller-allocates arg))
 	 (setup (translator->giarg trans))
 	 (setup-out (if caller-allocates
 			(lambda (arg-state giarg-out value-out)
