@@ -163,6 +163,15 @@
 		 (invoke (cancellable 'cancel))
 		 is-cancelled)))
 
+(test (object-caller-alloc :depends-on (and object-method struct-allocate/free))
+      "Test the object method with caller allocated struct parameter"
+      (is-true (typep (let ((file-info (invoke (*gio* "FileInfo" 'new))))
+		       (multiple-value-bind (ret time-val)
+			   (invoke (file-info 'get-modification-time))
+			 (declare (ignore ret))
+			 time-val))
+		      'gir::struct)))
+
 (in-suite gir)
 
 (test (array :depends-on object-method)
