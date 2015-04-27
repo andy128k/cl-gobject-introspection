@@ -12,7 +12,7 @@
   :version "0.3"
   :author "Andrey Kutejko <andy128k@gmail.com>, Roman Klochkov <kalimehtar@mail.ru>"
   :licence "BSD"
-  :depends-on (:cffi :iterate :trivial-garbage)
+  :depends-on (:alexandria :cffi :iterate :trivial-garbage)
   :serial t
   :in-order-to ((test-op (load-op :cl-gobject-introspection-test)))
   :perform (test-op (o c) (uiop:symbol-call :gir-test :main))
