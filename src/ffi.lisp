@@ -59,6 +59,10 @@
 	       (setf (gethash cname interface-cache) (build-interface info))
 	       (warn "No such FFI name ~a" name))))))
 
+(defun find-build-interface-for-name (nsname name)
+  (let ((namespace (require-namespace nsname)))
+      (nsget namespace name)))
+
 (defun find-build-interface (info)
   (let* ((namespace (info-get-namespace info))
 	 (ffi (ffi namespace)))
