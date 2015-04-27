@@ -3,7 +3,7 @@
 (in-package :common-lisp-user)
 
 (defpackage #:gir
-  (:use #:common-lisp #:iterate)
+  (:use #:common-lisp #:alexandria #:iterate)
   (:shadow #:get-properties)
   (:export 
    #:argument
