@@ -3,7 +3,7 @@
 (defun method? (flags)
   (let (res)
     (dolist (flag flags res)
-      (case flag 
+      (case flag
         (:is-constructor (return-from method? nil))
         (:is-method (setf res t))))))
 
@@ -598,20 +598,115 @@
   (let ((length (type-info-get-array-length type)))
     (if (eql length -1) nil length)))
 
-(defstruct arg-processor
-  direction
-  for-array-length?
-  array-length
-  setup
-  setup-out
-  >value
-  clear)
+(defgeneric argument-processor-setup (argument-processor giarg value))
+(defgeneric argument-processor-clear (argument-processor giarg &optional length))
 
-(defvar *obj-arg-processor*
-  (make-arg-processor
-   :direction :in
-   :setup #'pointer->giarg
-   :clear #'dont-free))
+(defclass argument-processor ()
+  ((type)
+   (is-array-type)
+   (direction :reader direction-of)
+   (for-array-length-p :initform nil :accessor for-array-length-p-of)
+   (array-length :reader array-length-of)
+   (caller-allocates)
+   (transfer)))
+
+(defmethod argument-processor-setup ((argument-processor argument-processor) giarg value)
+  (with-slots (type is-array-type)
+      argument-processor
+    (let ((gatype (if is-array-type
+		      (copy-find-set-c-array-type-length type (length value))
+		      type)))
+      (mem-set giarg value gatype))))
+
+(defun argument-processor-setup-out (argument-processor arg-state giarg-out value-out)
+  (with-slots (type caller-allocates)
+      argument-processor
+    (if caller-allocates
+	(progn
+	  (setf (arg-state-giarg arg-state) giarg-out)
+	  (mem-alloc giarg-out type))
+	(progn
+	  (setf (arg-state-giarg arg-state) value-out)
+	  (pointer->giarg giarg-out value-out)))))
+
+(defun argument-processor->value (argument-processor giarg &optional length)
+  (with-slots (type)
+      argument-processor
+    (let ((gatype (if length
+		      (copy-find-set-c-array-type-length type length)
+		      type)))
+      (mem-get giarg gatype))))
+
+(defmethod argument-processor-clear ((argument-processor argument-processor)
+				     giarg &optional length)
+  (with-slots (type direction)
+      argument-processor
+    (when (eq direction :in)
+      (let ((gatype (if length
+			(copy-find-set-c-array-type-length type length)
+			type)))
+	(mem-free giarg gatype)))))
+
+(defmethod shared-initialize :after ((argument-processor argument-processor)
+				     slot-names &key arg-info)
+  (with-slots (type is-array-type direction for-array-length
+		    array-length caller-allocates)
+      argument-processor
+    (let ((type-info (arg-info-get-type arg-info))
+	  (transfer (arg-info-get-ownership-transfer arg-info)))
+     (setf caller-allocates (arg-info-is-caller-allocates arg-info)
+	   type (build-argument-type type-info transfer
+				     :force-pointer caller-allocates)
+	   direction (arg-info-get-direction arg-info)
+	   is-array-type (find-object-with-class type (find-class 'c-array-type))
+	   array-length (get-array-length type-info)))))
+
+(defclass object-argument-processor ()
+  ())
+
+(defmethod direction-of ((object-argument-processor object-argument-processor))
+  :in)
+
+(defmethod array-length-of ((object-argument-processor object-argument-processor))
+  nil)
+
+(defmethod for-array-length-p-of ((object-argument-processor object-argument-processor))
+  nil)
+
+(defmethod argument-processor-setup ((object-argument-processor object-argument-processor)
+				     giarg value)
+  (pointer->giarg giarg value))
+
+(defmethod argument-processor-clear ((object-argument-processor object-argument-processor)
+				     giarg &optional length)
+  (declare (ignore object-argument-processor giarg length)))
+
+(defvar *object-argument-processor* (make-instance 'object-argument-processor))
+
+(defclass return-processor ()
+  ((type)
+   (array-length :reader array-length-of)))
+
+(defun return-processor->value (return-processor giarg &optional length)
+  (with-slots (type)
+      return-processor
+    (let ((gatype (if length
+		      (copy-find-set-c-array-type-length type length)
+		      type)))
+      (mem-get giarg gatype))))
+
+(defmethod shared-initialize :after ((return-processor return-processor)
+				     slot-names &key func-info return-interface)
+  (with-slots (type array-length)
+      return-processor
+    (let ((type-info (callable-info-get-return-type func-info))
+	  (transfer (callable-info-get-caller-owns func-info)))
+      (setf type
+	    (if return-interface
+		(let ((intf-ptr-type (make-interface-pointer-type return-interface :everything)))
+		  (make-instance 'argument-type :contained-type intf-ptr-type :field 'v-pointer))
+		(build-argument-type type-info transfer))
+	    array-length (get-array-length type-info)))))
 
 (defun copy-find-set-c-array-type-length (type length)
   (let* ((copy-type (copy-instance type))
@@ -619,67 +714,19 @@
     (setf (length-of c-array-type) length)
     copy-type))
 
-(defun build-arg-processor (arg)
-  (let* ((type (arg-info-get-type arg))
-	 (caller-allocates (arg-info-is-caller-allocates arg))
-	 (transfer (arg-info-get-ownership-transfer arg))
-	 (giarg-type (build-argument-type type transfer :force-pointer caller-allocates))
-	 (direction (arg-info-get-direction arg))
-	 (is-array-type (find-object-with-class giarg-type (find-class 'c-array-type)))
-	 (setup (lambda (giarg value)
-		  (let ((gatype (if is-array-type (copy-find-set-c-array-type-length giarg-type (length value)) giarg-type)))
-		    (mem-set giarg value gatype))))
-	 (setup-out (if caller-allocates
-			(lambda (arg-state giarg-out value-out)
-			  (declare (ignore value-out))
-			  (setf (arg-state-giarg arg-state) giarg-out)
-			  (mem-alloc giarg-out giarg-type))
-			(lambda (arg-state giarg-out value-out)
-			  (setf (arg-state-giarg arg-state) value-out)
-			  (pointer->giarg giarg-out value-out))))
-	 (arg->value (lambda (giarg &optional length)
-		       (let ((gatype (if length (copy-find-set-c-array-type-length giarg-type length) giarg-type)))
-			 (mem-get giarg gatype))))
-	 (clear (if (eq direction :in)
-		    (lambda (giarg &optional length)
-		      (let ((gatype (if length (copy-find-set-c-array-type-length giarg-type length) giarg-type)))
-			(mem-free giarg gatype)))
-		    #'dont-free)))
-    (make-arg-processor :direction direction
-			:array-length (get-array-length type)
-			:setup setup :setup-out setup-out :>value arg->value
-			:clear clear)))
-
-(defstruct return-processor
-  array-length
-  >value)
-
-(defun build-return-processor (func-info &key return-interface)
-  (let* ((type (callable-info-get-return-type func-info))
-	 (transfer (callable-info-get-caller-owns func-info))
-	 (giarg-type (if return-interface
-		     (let ((intf-ptr-type (make-interface-pointer-type return-interface :everything)))
-		       (make-instance 'argument-type :contained-type intf-ptr-type :field 'v-pointer))
-		     (build-argument-type type transfer)))
-	 (arg->value (lambda (giarg &optional length)
-		       (let ((gatype (if length (copy-find-set-c-array-type-length giarg-type length) giarg-type)))
-			 (mem-get giarg gatype)))))
-    (make-return-processor :array-length (get-array-length type)
-			   :>value arg->value)))
-
 (defun get-args (info)
   ;; if construct + in-arg
   (let* ((n-args (g-callable-info-get-n-args info))
 	 (args-processor
 	  (when (method? (function-info-get-flags info))
-	    (list *obj-arg-processor*)))
+	    (list *object-argument-processor*)))
 	 (in-count (length args-processor))
 	 (out-count 0)
 	 (in-array-length-count 0))
     (dotimes (i n-args)
       (let* ((arg (g-callable-info-get-arg info i))
              (direction (arg-info-get-direction arg))
-	     (arg-processor (build-arg-processor arg)))
+	     (arg-processor (make-instance 'argument-processor :arg-info arg)))
 	(ecase direction
 	  (:in (incf in-count))
 	  (:in-out (incf in-count) (incf out-count))
@@ -688,14 +735,14 @@
     (setf args-processor (nreverse args-processor))
     (loop
        :for arg-processor :in args-processor
-       :for array-length = (arg-processor-array-length arg-processor)
+       :for array-length = (array-length-of arg-processor)
        :when array-length
-       :do (setf (arg-processor-for-array-length?
+       :do (setf (for-array-length-p-of
 		  (nth array-length args-processor)) t))
     (loop
        :for arg-processor :in args-processor
-       :when (and (not (eq (arg-processor-direction arg-processor) :out))
-		  (arg-processor-for-array-length? arg-processor))
+       :when (and (not (eq (direction-of arg-processor) :out))
+		  (for-array-length-p-of arg-processor))
        :do (incf in-array-length-count))
     (values args-processor in-count out-count in-array-length-count)))
 
@@ -719,10 +766,10 @@
      :for i :upfrom 0
      :for arg-state :in args-state
      :for proc = (arg-state-proc arg-state)
-     :unless (or (eq (arg-processor-direction proc) :out)
-		 (arg-processor-for-array-length? proc))
+     :unless (or (eq (direction-of proc) :out)
+		 (for-array-length-p-of proc))
      :do (let ((arg (car args))
-	       (array-length (arg-processor-array-length proc)))
+	       (array-length (array-length-of proc)))
 	   (setf (arg-state-value arg-state) arg)
 	   (if array-length
 	       (setf (arg-state-value (nth array-length args-state))
@@ -734,24 +781,24 @@
      :with inp = giargs-in :and outp = giargs-out :and voutp = values-out
      :for arg-state :in args-state
      :for proc = (arg-state-proc arg-state)
-     :for dir = (arg-processor-direction proc)
+     :for dir = (direction-of proc)
      :for value = (arg-state-value arg-state)
      :do (ecase dir
 	   (:in
 	    (setf (arg-state-giarg arg-state) inp)
-	    (funcall (arg-processor-setup proc) inp value)
+	    (argument-processor-setup proc inp value)
 	    (incf-giargs inp))
 	   (:in-out
 	    (setf (arg-state-giarg arg-state) voutp)
-	    (funcall (arg-processor-setup proc) voutp value)
+	    (argument-processor-setup proc voutp value)
 	    (pointer->giarg inp voutp)
 	    (pointer->giarg outp voutp)
 	    (incf-giargs inp)
 	    (incf-giargs outp)
 	    (incf-giargs voutp))
 	   (:out
-	    (funcall (arg-processor-setup-out proc)
-		     arg-state outp voutp)
+	    (argument-processor-setup-out
+	     proc arg-state outp voutp)
 	    (incf-giargs outp)
 	    (incf-giargs voutp)))))
 
@@ -759,43 +806,44 @@
   (loop
      :for arg-state :in args-state
      :for proc = (arg-state-proc arg-state)
-     :when (and (not (eq (arg-processor-direction proc) :in))
-		(null (arg-processor-array-length proc)))
-     :do (let ((value (funcall (arg-processor->value proc)
-			       (arg-state-giarg arg-state))))
+     :when (and (not (eq (direction-of proc) :in))
+		(null (array-length-of proc)))
+     :do (let ((value (argument-processor->value
+		       proc (arg-state-giarg arg-state))))
 	   (setf (arg-state-value arg-state) value)))
   (loop
      :for arg-state :in args-state
      :for proc = (arg-state-proc arg-state)
-     :for array-length = (arg-processor-array-length proc)
-     :when (and array-length (not (eq (arg-processor-direction proc) :in)))
+     :for array-length = (array-length-of proc)
+     :when (and array-length (not (eq (direction-of proc) :in)))
      :do (let* ((length (arg-state-value (nth array-length args-state)))
-		(value (funcall (arg-processor->value proc)
-				(arg-state-giarg arg-state) length)))
+		(value (argument-processor->value
+			proc (arg-state-giarg arg-state) length)))
 	   (setf (arg-state-value arg-state) value)))
   (cons
-   (let ((array-length (return-processor-array-length ret-proc)))
+   (let ((array-length (array-length-of ret-proc)))
      (if array-length
-	 (funcall (return-processor->value ret-proc) giarg-res
-		  (arg-state-value (nth array-length args-state)))
-	 (funcall (return-processor->value ret-proc) giarg-res)))
+	 (return-processor->value
+	  ret-proc giarg-res
+	  (arg-state-value (nth array-length args-state)))
+	 (return-processor->value ret-proc giarg-res)))
    (loop
       :for arg-state :in args-state
       :for proc = (arg-state-proc arg-state)
-      :when (and (not (eq (arg-processor-direction proc) :in))
-		 (null (arg-processor-for-array-length? proc)))
+      :when (and (not (eq (direction-of proc) :in))
+		 (null (for-array-length-p-of proc)))
       :collect (arg-state-value arg-state))))
 
 (defun clear-giargs (args-state)
   (loop
      :for arg-state :in args-state
      :for proc = (arg-state-proc arg-state)
-     :for dir = (arg-processor-direction proc)
-     :for array-length = (arg-processor-array-length proc)
+     :for dir = (direction-of proc)
+     :for array-length = (array-length-of proc)
      :for giarg = (arg-state-giarg arg-state)
      :for value = (arg-state-value arg-state)
-     :do (funcall (arg-processor-clear proc) giarg
-		  (if array-length (length value)))))
+     :do (argument-processor-clear proc giarg
+				   (if array-length (length value)))))
 
 (cffi:defcfun g-function-info-invoke :boolean
   (info info-ffi)
@@ -807,8 +855,8 @@
   (multiple-value-bind (args-processor in-count out-count in-array-length-count)
       (get-args info)
     (let* ((name (info-get-name info))
-	   (ret-proc (build-return-processor info :return-interface
-					     return-interface)))
+	   (ret-proc (make-instance 'return-processor :func-info info
+				    :return-interface return-interface)))
       (lambda (&rest args)
 	(let ((args-state (make-args-state args-processor))
 	      out)
