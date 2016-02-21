@@ -19,14 +19,8 @@
       (:is-setter (return nil))
       (:wraps-vfunc (return nil)))))
 
-(defun any->pointer (value)
-  (typecase value
-    (struct (struct-this value))
-    (object-instance (this-of value))
-    (t value)))
-
 (defun set-pointer (position value)
-  (setf (cffi:mem-ref position :pointer) (any->pointer value)))
+  (setf (cffi:mem-ref position :pointer) (this-of value)))
 
 (defun pointer->giarg (giarg value)
   (set-pointer (cffi:foreign-slot-pointer giarg '(:union argument) 'v-pointer)
@@ -264,10 +258,7 @@
   ())
 
 (defmethod mem-set (pos value (o/s-t object/struct-pointer-type))
-  (let ((pointer (etypecase value
-		   (struct (struct-this value))
-		   (object-instance (this-of value))
-		   (cffi:foreign-pointer value))))
+  (let ((pointer (this-of value)))
     (setf (cffi:mem-ref pos :pointer) pointer)))
 
 (let ((o/s-p-t-cache (make-instance 'object/struct-pointer-type)))
@@ -345,9 +336,7 @@
 (defmethod mem-set (pos value (struct-pointer-type struct-pointer-type))
   (declare (ignore struct-pointer-type))
   (setf (cffi:mem-ref pos :pointer)
-	(if (typep value 'struct)
-	    (struct-this value)
-	    value)))
+	(this-of value)))
 
 (defmethod mem-set (pos (value null) (struct-pointer-type struct-pointer-type))
   (declare (ignore struct-pointer-type))
@@ -384,10 +373,10 @@
 (defmethod mem-size ((struct-type struct-type))
   (with-accessors ((gir-class gir-class-of))
       struct-type
-    (struct-info-get-size (struct-class-info gir-class))))
+    (struct-info-get-size (info-of gir-class))))
 
 (defmethod mem-set (pos value (struct-type struct-type))
-  (copy-memory pos (struct-this value) (mem-size struct-type)))
+  (copy-memory pos (this-of value) (mem-size struct-type)))
 
 (defmethod mem-get (pos (struct-type struct-type))
   (with-accessors ((gir-class gir-class-of))

@@ -60,7 +60,7 @@
 
 (test (struct-constructor :depends-on function)
       "Test the struct constructor"
-      (is (eql 'gir::struct
+      (is (eql 'gir::struct-instance
 	       (progn
 		 (setf *entry* (invoke (*gtk* "TargetEntry" 'new)
 				       *entry-target* *entry-flags1* 0))
@@ -68,7 +68,7 @@
 
 (test (struct-this :depends-on struct-constructor)
       "Test the struct this pointer"
-      (is-true (pointerp (gir::struct-this *entry*))))
+      (is-true (pointerp (gir::this-of *entry*))))
 
 (test (struct-field :depends-on struct-constructor)
       "Test the struct field get/set"
@@ -88,7 +88,7 @@
 
 (test (struct-foreign-obj :depends-on (and struct-method struct-field))
       "Test the struct foreign object support"
-      (is-true (progn (setf *entry-this* (gir::struct-this *entry*))
+      (is-true (progn (setf *entry-this* (gir::this-of *entry*))
 		      (pointerp *entry-this*)))
       (is (equal (list *entry-target* *entry-flags2*)
 		 (let ((entry (gir::build-struct-ptr (nget *gtk* "TargetEntry")
@@ -170,7 +170,7 @@
 			   (invoke (file-info 'get-modification-time))
 			 (declare (ignore ret))
 			 time-val))
-		      'gir::struct)))
+		      'gir::struct-instance)))
 
 (in-suite gir)
 
