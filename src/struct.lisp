@@ -42,21 +42,28 @@
 (defun allocate-struct (struct-class)
   (build-struct-ptr struct-class (%allocate-struct struct-class)))
 
+(defun struct-class-get-constructor-info (struct-class name)
+  (let* ((info (info-of struct-class))
+	 (function-info (struct-info-find-method info (c-name name))))
+    (if (and function-info
+	     (constructor? (function-info-get-flags function-info)))
+	function-info
+	(error "Bad FFI constructor name ~a" name))))
+
 (defun struct-class-build-constructor (struct-class name)
+  (build-function (struct-class-get-constructor-info struct-class name)
+		  :return-interface (info-of struct-class)))
+
+(defun struct-class-get-method-info (struct-class name)
   (let* ((info (info-of struct-class))
 	 (function-info (struct-info-find-method info (c-name name)))
 	 (flags (if function-info (function-info-get-flags function-info))))
-    (unless (and function-info (constructor? flags))
-      (error "Bad FFI constructor name ~a" name))
-    (build-function function-info :return-interface info)))
+    (if (and function-info (method? flags))
+	function-info
+	(error "Bad FFI method name ~a" name))))
 
 (defun struct-class-build-method (struct-class name)
-  (let* ((info (info-of struct-class))
-	 (function-info (struct-info-find-method info (c-name name)))
-	 (flags (if function-info (function-info-get-flags function-info))))
-    (unless (and function-info (method? flags))
-      (error "Bad FFI constructor name ~a" name))
-    (build-function function-info)))
+  (build-function (struct-class-get-method-info struct-class name)))
 
 (defun build-struct-ptr (struct-class this)
   (make-instance 'struct-instance :class struct-class :this this))
@@ -101,3 +108,33 @@
 				 (struct-class-build-method struct-class cname))))
     (lambda (&rest args)
       (apply method (cons (this-of struct) args)))))
+
+(defmethod nsget-desc ((struct-class struct-class) name)
+  (build-function-desc (struct-class-get-constructor-info struct-class name)
+		       :return-interface (info-of struct-class)))
+
+(defmethod list-fields-desc ((struct-class struct-class))
+  (let ((fields-dict (fields-dict-of struct-class)))
+    (iter (for (name . field-info) :in fields-dict)
+	  (collect (build-variable-desc name (field-info-get-type field-info))))))
+
+(defmethod get-field-desc ((struct-class struct-class) name)
+  (let* ((cname (c-name name))
+	 (field-info (struct-class-find-field struct-class cname)))
+    (build-variable-desc cname (field-info-get-type field-info))))
+
+(defmethod list-methods-desc ((struct-class struct-class))
+  (let ((info (info-of struct-class)))
+    (iter (for method-info :in (struct-info-get-methods info))
+	  (when (method? (function-info-get-flags method-info))
+	    (collect (build-function-desc method-info))))))
+
+(defmethod get-method-desc ((struct-class struct-class) name)
+  (build-function-desc (struct-class-get-method-info struct-class
+						     (c-name name))))
+
+(defmethod list-constructors-desc ((struct-class struct-class))
+  (let ((info (info-of struct-class)))
+    (iter (for method-info :in (struct-info-get-methods info))
+	  (when (constructor? (function-info-get-flags method-info))
+	    (collect (build-function-desc method-info))))))

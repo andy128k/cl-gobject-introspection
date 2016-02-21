@@ -175,4 +175,5 @@
    #:list-methods-desc
    #:get-method-desc
    #:list-class-functions-desc
-   #:list-constructors-desc))
+   #:list-constructors-desc
+   #:struct-class))
