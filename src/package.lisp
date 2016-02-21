@@ -164,4 +164,15 @@
    #:type-desc-of
    #:function-desc
    #:arguments-desc-of
-   #:return-desc-of))
+   #:return-desc-of
+   #:object-class
+   #:gir-class-of
+   #:parent-of
+   #:list-fields-desc
+   #:get-field-desc
+   #:list-properties-desc
+   #:get-property-desc
+   #:list-methods-desc
+   #:get-method-desc
+   #:list-class-functions-desc
+   #:list-constructors-desc))

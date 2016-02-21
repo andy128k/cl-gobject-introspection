@@ -44,7 +44,7 @@
 (defmethod build-interface ((info object-info))
   (make-instance 'object-class :info info))
 
-(defun object-class-build-constructor-class-function (object-class cname)
+(defun object-class-get-constructor-class-function-info (object-class cname)
   (let* ((info (info-of object-class))
 	 (function-info (object-info-find-method info cname))
 	 flags)
@@ -53,11 +53,16 @@
 	(error "Bad FFI constructor/function name ~a" cname))
     (cond
       ((constructor? flags)
-       (build-function function-info :return-interface info))
+       (values function-info info))
       ((class-function? flags)
-       (build-function function-info))
+       (values function-info nil))
       (t
        (error "~a is not constructor or class function" cname)))))
+
+(defun object-class-build-constructor-class-function (object-class cname)
+  (multiple-value-bind (function-info return-interface)
+      (object-class-get-constructor-class-function-info object-class cname)
+    (build-function function-info :return-interface return-interface)))
 
 (defun object-class-find-function-info (object-class cname)
   (with-accessors ((info info-of) (interface-infos interface-infos-of))
@@ -67,11 +72,14 @@
 	      (if-let ((func (interface-info-find-method intf cname)))
 		(return func))))))
 
-(defun object-class-build-method (object-class cname)
+(defun object-class-find-method-function-info (object-class cname)
   (let* ((function-info (object-class-find-function-info object-class cname))
-	 (flags (if function-info (function-info-get-flags function-info))))
-    (if (and function-info (method? flags))
-	(build-function function-info))))
+	 (flags (and function-info (function-info-get-flags function-info))))
+    (and function-info (method? flags) function-info)))
+
+(defun object-class-build-method (object-class cname)
+  (if-let ((func-info (object-class-find-method-function-info object-class cname)))
+    (and func-info (build-function func-info))))
 
 (defun object-class-find-build-method (object-class cname)
   (with-accessors ((parent parent-of) (method-cache method-cache-of))
@@ -155,3 +163,57 @@
 
 (defmethod cffi:translate-from-foreign (pointer (type pobject))
   (gobject (gtype pointer) pointer))
+
+(defmethod nsget-desc ((object-class object-class) name)
+  (multiple-value-bind (function-info return-interface)
+      (object-class-get-constructor-class-function-info object-class (c-name name))
+    (build-function-desc function-info :return-interface return-interface)))
+
+(defmethod list-fields-desc ((object-class object-class))
+  (let ((fields-dict (fields-dict-of object-class)))
+    (iter (for (name . field-info) :in fields-dict)
+	  (collect (build-variable-desc name (field-info-get-type field-info))))))
+
+(defmethod get-field-desc ((object-class object-class) name)
+  (let* ((cname (c-name name))
+	 (field-info (object-class-find-field object-class cname)))
+    (build-variable-desc cname (field-info-get-type field-info))))
+
+(defmethod list-properties-desc ((object-class object-class))
+  (let ((info (info-of object-class)))
+    (iter (for prop-info :in (object-info-get-properties info))
+	  (collect (build-variable-desc (info-get-name prop-info)
+					(property-info-get-type prop-info))))))
+
+(defmethod get-property-desc ((object-class object-class) name)
+  (let ((cname (c-name name))
+	(props-desc (list-properties-desc object-class)))
+    (iter (for prop-desc :in props-desc)
+	  (when (equal cname (name-of prop-desc))
+	    (return prop-desc)))
+    (error "~a is not property name" cname)))
+
+(defmethod list-methods-desc ((object-class object-class))
+  (let ((info (info-of object-class)))
+    (iter (for method-info :in (object-info-get-methods info))
+	  (when (method? (function-info-get-flags method-info))
+	    (collect (build-function-desc method-info))))))
+
+(defmethod get-method-desc ((object-class object-class) name)
+  (let* ((cname (c-name name))
+	 (func-info (object-class-find-method-function-info object-class cname)))
+    (if func-info
+	(build-function-desc func-info)
+	(error "~a is not method name" cname))))
+
+(defmethod list-class-functions-desc ((object-class object-class))
+  (let ((info (info-of object-class)))
+    (iter (for method-info :in (object-info-get-methods info))
+	  (when (class-function? (function-info-get-flags method-info))
+	    (collect (build-function-desc method-info))))))
+
+(defmethod list-constructors-desc ((object-class object-class))
+  (let ((info (info-of object-class)))
+    (iter (for method-info :in (object-info-get-methods info))
+	  (when (constructor? (function-info-get-flags method-info))
+	    (collect (build-function-desc method-info :return-interface info))))))
