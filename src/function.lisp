@@ -872,3 +872,7 @@
 					      giarg-res g-error)
 		      (make-out ret-val out-args))
 		 (mapc #'in-arg-clear pure-in-args))))))))))
+
+(defmethod build-interface ((info function-info))
+  (build-function info))
+

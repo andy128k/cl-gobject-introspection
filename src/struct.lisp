@@ -25,6 +25,9 @@
 		       (make-hash-table :test 'equal)
 		       (make-hash-table :test 'equal))))
 
+(defmethod build-interface ((info struct-info))
+  (build-struct-class info))
+
 (defun %allocate-struct (struct-class)
   (let* ((info (struct-class-info struct-class))
 	 (size (struct-info-get-size info)))

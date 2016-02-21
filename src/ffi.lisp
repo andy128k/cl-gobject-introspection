@@ -1,6 +1,7 @@
 (in-package :gir)
 
 (defgeneric nsget (namespace name))
+(defgeneric build-interface (info))
 
 (defun nget (namespace &rest names)
   (dolist (name names namespace)
@@ -8,20 +9,14 @@
 
 (defmacro invoke (func &rest args)
   (if (listp func)
-  `(funcall (nget ,@func) ,@args)
-  `(funcall ,func ,@args)))
+      `(funcall (nget ,@func) ,@args)
+      `(funcall ,func ,@args)))
 
 (defmethod nsget ((namespace function) name)
   (funcall namespace name))
 
-(defun build-interface (info)
-  (etypecase info
-    (function-info (build-function info))
-    (object-info (build-object-class info))
-    (struct-info (build-struct-class info))
-    (enum-info (build-enum info))
-    (constant-info (constant-info-get-value info))))
-
+(defmethod build-interface ((info constant-info))
+  (constant-info-get-value info))
 (defstruct
     (namespace
       (:constructor make-namespace (name version interface-cache)))

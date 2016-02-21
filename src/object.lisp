@@ -44,6 +44,9 @@
 		       (make-hash-table :test 'equal)
 		       (make-hash-table :test 'equal))))
 
+(defmethod build-interface ((info object-info))
+  (build-object-class info))
+
 (defun object-class-build-constructor-class-function (object-class cname)
   (let* ((info (object-class-info object-class))
 	 (function-info (object-info-find-method info cname))

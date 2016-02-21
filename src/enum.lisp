@@ -20,3 +20,6 @@
                      (error "Should be FFI enum value name: ~a" name)))
             (cdr (or (assoc name* methods-dict :test #'string=)
                             (error "Should be FFI method name: ~a" name))))))))
+
+(defmethod build-interface ((info enum-info))
+  (build-enum info))
