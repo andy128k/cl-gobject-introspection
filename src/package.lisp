@@ -176,4 +176,6 @@
    #:get-method-desc
    #:list-class-functions-desc
    #:list-constructors-desc
-   #:struct-class))
+   #:struct-class
+   #:enum-desc
+   #:values-of))
