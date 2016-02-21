@@ -8,28 +8,28 @@
 
 (in-suite gir)
 
-(test ffi
-      "Test the ffi function"
+(test namespace
+      "Test the namespace function"
       (is (eql 'gir::namespace
-	       (progn (setf *glib* (ffi "GLib"))
+	       (progn (setf *glib* (require-namespace "GLib"))
 		      (type-of *glib*))))
       (is (eql 'gir::namespace
-	       (progn (setf *gio* (ffi "Gio"))
+	       (progn (setf *gio* (require-namespace "Gio"))
 		      (type-of *gio*))))
       (is (eql 'gir::namespace
-	       (progn (setf *gtk* (ffi "Gtk"))
+	       (progn (setf *gtk* (require-namespace "Gtk"))
 		      (type-of *gtk*)))))
 
-(test (enum :depends-on ffi)
+(test (enum :depends-on namespace)
       "Test the enumeration"
       (is (= 0 (nget *gtk* "WindowType" :toplevel))))
 
-(test (const :depends-on ffi)
+(test (const :depends-on namespace)
       "Test the constant"
       (is (= 2.718282d0 (nget *glib* "E")))
       (is (equal "i" (nget *glib* "GINT32_FORMAT"))))
 
-(test (function :depends-on ffi)
+(test (function :depends-on namespace)
       "Test the function"
       ;; in-arguments, #\A
       (is-true (invoke (*glib* 'unichar-isalpha) #x41))

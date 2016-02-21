@@ -7,7 +7,7 @@ This is Gobject FFI.
 Usage example:
 
 ```racket
-(defvar *gtk* (gir:ffi "Gtk"))                  
+(defvar *gtk* (gir:require-namespace "Gtk"))
 (gir:invoke (*gtk* 'init) nil)
 (let ((window (gir:invoke (*gtk* "Window" 'new)
                           (gir:nget *gtk* "WindowType" :toplevel))))
@@ -19,9 +19,9 @@ Interface with the GObjectIntrospection is based on repositories. Main
 function is
 
 ```racket
-(gir:ffi repository-name [version]) -> repository
-  repository-name : string                 
-  version : string = nil                   
+(gir:require-namespace repository-name [version]) -> repository
+  repository-name : string
+  version : string = nil
 ```
 
 Returns interface to repository with name `repository-name`. In
@@ -63,19 +63,19 @@ be seen as parameters.
 ```racket
 (gir:invoke (repository func-name) func-arg ...) -> any
   repositry : repository
-  func-name : (or string symbol)                    
-  func-arg : any                                    
+  func-name : (or string symbol)
+  func-arg : any
 (gir:nget repository const-name) -> any
-  repositry : repository
-  const-name : (or string symbol)                   
+  repository : repository
+  const-name : (or string symbol)
 (gir:nget repository enum-name enum-value-name) -> integer
   repositry : repository
-  enum-name : (or string symbol)                    
-  enum-value-name : (or string symbol)              
+  enum-name : (or string symbol)
+  enum-value-name : (or string symbol)
 (gir:nget repository class-name constructor-name) -> function
   repositry : repository
-  class-name : (or string symbol)                   
-  constructor-name : (or string symbol)             
+  class-name : (or string symbol)
+  constructor-name : (or string symbol)
 ```
 
 The nget takes all arguments except the first one as names of foreign
@@ -88,7 +88,7 @@ If second argument of nget is a name of function, nget will get the
 function object.  And we can use invoke macro for more concise syntax.
 
 ```racket
-(defvar *gtk* (gir:ffi "Gtk"))
+(defvar *gtk* (gir:require-namespace "Gtk"))
 (gir:invoke (*gtk* 'init) nil)
 ```
 
@@ -132,9 +132,9 @@ This call will return a representation of object.
 
 ```racket
 (gir:invoke (object method-name) method-arg ...) -> any
-  object : gir-object                          
-  method-name : (or string symbol)             
-  method-arg : any                             
+  object : gir-object
+  method-name : (or string symbol)
+  method-arg : any
 ```
 
 To get the method of an object, the second argument of nget should be
@@ -171,10 +171,10 @@ Getting and setting field values are done with field and setf.
 (defvar *entry* (gir:invoke (*gtk* "TargetEntry" 'new) "ok" 0 0))
                                                          
 > (gir:field *entry* 'flags)
-0                                                        
+0
 > (setf (gir:field *entry* 'flags) 1)
 > (gir:field *entry* 'flags)
-1                                                        
+1
 ```
 
 But you cannot set with :set-field! complex types such as structs,
@@ -193,8 +193,8 @@ Getting and setting property are done with property and setf.
 
 ```racket
 (gir:connect object signal-name handler) -> void?
-  object : gir-object                                       
-  signal-name : (or symbol string)                          
+  object : gir-object
+  signal-name : (or symbol string)
   handler : (or function cffi:foreign-pointer string symbol)
 ```
 
