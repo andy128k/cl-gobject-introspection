@@ -32,6 +32,19 @@
 (defmethod build-interface ((info constant-info))
   (constant-info-get-value info))
 
+(defgeneric nsget-desc (namespace name))
+(defgeneric nslist-desc (namespace)
+  (:method (namespace) (declare (ignore namespace))))
+(defgeneric build-interface-desc (info)
+  (:method (info) (build-interface info)))
+
+(defun nget-desc (namespace &rest names)
+  (dolist (name names namespace)
+    (setf namespace (nsget-desc namespace name))))
+
+(defun nlist-desc (namespace &rest names)
+  (nslist-desc (apply #'nget-desc namespace names)))
+
 (defclass namespace ()
   ((name :initarg :name :reader name-of)
    (version :reader version-of)
@@ -55,6 +68,10 @@
 				   (build-interface info))
 				 (warn "No such FFI name ~a" name))))
 
+(defmethod nsget-desc ((namespace namespace) name)
+  (build-interface-desc (repository-find-by-name nil (name-of namespace)
+						 (c-name name))))
+
 (defvar *namespace-cache* (make-hash-table :test 'equal))
 
 (defun require-namespace (namespace &optional version)
@@ -77,3 +94,7 @@
   (let* ((nsname (info-get-namespace info))
 	 (namespace (require-namespace nsname)))
     (nsget namespace (info-get-name info))))
+
+(defun build-interface-desc-for-name (nsname name)
+  (let ((namespace (require-namespace nsname)))
+    (nsget-desc namespace name)))
