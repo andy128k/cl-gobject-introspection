@@ -22,7 +22,7 @@
 (defun any->pointer (value)
   (typecase value
     (struct (struct-this value))
-    (object (object-this value))
+    (object-instance (this-of value))
     (t value)))
 
 (defun set-pointer (position value)
@@ -249,15 +249,13 @@
 (defmethod mem-set (pos value (o/s-t object/struct-pointer-type))
   (let ((pointer (etypecase value
 		   (struct (struct-this value))
-		   (object (object-this value))
+		   (object-instance (this-of value))
 		   (cffi:foreign-pointer value))))
     (setf (cffi:mem-ref pos :pointer) pointer)))
 
 (let ((o/s-p-t-cache (make-instance 'object/struct-pointer-type)))
   (defun make-object/struct-pointer-type ()
     o/s-p-t-cache))
-
-(defgeneric gir-class-of (interface-type))
 
 (defclass interface-type ()
   ((namespace :initarg :namespace)
@@ -279,7 +277,7 @@
   ())
 
 (defmethod mem-set (pos value (object-pointer-type object-pointer-type))
-  (setf (cffi:mem-ref pos :pointer) (object-this value)))
+  (setf (cffi:mem-ref pos :pointer) (this-of value)))
 
 (defmethod mem-set (pos (value null) (object-pointer-type object-pointer-type))
   (declare (ignore value))

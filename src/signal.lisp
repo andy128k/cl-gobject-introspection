@@ -42,7 +42,7 @@
 			    i))
 		   (val (gvalue->lisp/free gvalue (gvalue-gtype gvalue)
 					   :no-free t)))
-	      (if (typep val 'object)
+	      (if (typep val 'object-instance)
 		  (object-setup-gc val :nothing)
 		  val)))))
     (let ((res (apply lisp-func lisp-params)))
@@ -76,8 +76,8 @@
       (null (cffi:null-pointer)))))
 
 (defun connect (g-object signal c-handler &key after swapped)
-  (let* ((object-ptr (if (typep g-object 'object)
-                         (object-this g-object)
+  (let* ((object-ptr (if (typep g-object 'object-instance)
+                         (this-of g-object)
                          g-object))
          (str-signal (string-downcase signal))
          (c-handler (cond 

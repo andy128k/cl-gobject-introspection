@@ -14,13 +14,13 @@
   (let ((window (gir:invoke (*gtk* "Window" 'new)
 			    (gir:nget *gtk* "WindowType" :toplevel)))
         (button (gir:invoke (*gtk* "Button" 'new-with-label) "Hello, world!")))
-    (gir::g-signal-connect-data (gir::object-this window)
+    (gir::g-signal-connect-data (gir::this-of window)
                                 "destroy"
                                 (cffi:foreign-symbol-pointer "gtk_main_quit")
                                 (cffi:null-pointer)
                                 (cffi:null-pointer)
                                 0)
-    ;; (gir::g-signal-connect-data (gir::object-this button)
+    ;; (gir::g-signal-connect-data (gir::this-of button)
     ;;                             "clicked"
     ;;                             (cffi:callback hello)
     ;;                             (cffi:null-pointer)

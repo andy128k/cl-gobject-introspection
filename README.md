@@ -149,10 +149,10 @@ will call method "add" with argument in variable "button".
 
 ## 4.1. Pointer to object
 
-To get C pointer to an object, use object-this.
+To get C pointer to an object, use this-of.
 
 ```racket
-(gir::object-this *window*)
+(gir::this-of *window*)
 ```
 
 It is possible to make an object from a pointer:

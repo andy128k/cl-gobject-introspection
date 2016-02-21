@@ -13,6 +13,9 @@
 
 (defgeneric nsget (namespace name))
 (defgeneric build-interface (info))
+(defgeneric this-of (obj)
+  (:method (ptr) (etypecase ptr (cffi:foreign-pointer ptr))))
+(defgeneric gir-class-of (obj))
 
 (defun nget (namespace &rest names)
   (dolist (name names namespace)

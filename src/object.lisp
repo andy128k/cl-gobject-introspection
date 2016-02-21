@@ -8,47 +8,44 @@
     (string name)
     (symbol (string-downcase (substitute #\_ #\- (symbol-name name))))))
 
-(defstruct
-    (object
-      (:constructor make-object (class this)))
-  class
-  this)
+(defclass object-instance ()
+  ((class :initarg :class :reader gir-class-of)
+   (this :initarg :this :reader this-of)))
 
-(defstruct
-    (object-class
-      (:constructor make-object-class (parent info interface-infos signals
-				       fields-dict function-cache
-				       method-cache)))
-  parent
-  info
-  interface-infos
-  signals
-  fields-dict
-  function-cache
-  method-cache)
+(defclass object-class ()
+  ((parent :initarg :parent :reader parent-of)
+   (info :initarg :info :reader info-of)
+   (interface-infos :reader interface-infos-of)
+   (signals :reader signals-of)
+   (fields-dict :reader fields-dict-of)
+   (function-cache :reader function-cache-of)
+   (method-cache :reader method-cache-of)))
 
-(defun build-object-class (info)
-  (let* ((parent
-	  (let ((parent-info (object-info-get-parent info)))
-	    (if parent-info
-		(find-build-interface parent-info)
-		nil)))
-	 (signals (list nil))
-	 (fields-dict
-          (loop :for i :below (g-object-info-get-n-fields info)
-             :collect
-             (let ((field-info (g-object-info-get-field info i)))
-               (cons (info-get-name field-info) field-info)))))
-    (make-object-class parent info (object-info-get-interfaces info)
-		       signals fields-dict
-		       (make-hash-table :test 'equal)
-		       (make-hash-table :test 'equal))))
+(defmethod print-object ((obj-cls object-class) s)
+  (format s "#O<~a>" (info-get-name (info-of obj-cls))))
+
+(defmethod shared-initialize :after ((object-class object-class) slot-names
+				     &key info)
+  (declare (ignore slot-names))
+  (with-slots ((object-info info) parent interface-infos signals
+	       fields-dict function-cache method-cache)
+      object-class
+    (setf object-info info
+	  parent (if-let ((parent-info (object-info-get-parent info)))
+		   (find-build-interface parent-info)
+		   nil)
+	  interface-infos (object-info-get-interfaces info)
+	  signals (list nil)
+	  fields-dict (iter (for field-info :in (object-info-get-fields info))
+			    (collect (cons (info-get-name field-info) field-info)))
+	  function-cache (make-hash-table :test #'equal)
+	  method-cache (make-hash-table :test #'equal))))
 
 (defmethod build-interface ((info object-info))
-  (build-object-class info))
+  (make-instance 'object-class :info info))
 
 (defun object-class-build-constructor-class-function (object-class cname)
-  (let* ((info (object-class-info object-class))
+  (let* ((info (info-of object-class))
 	 (function-info (object-info-find-method info cname))
 	 flags)
     (if function-info
@@ -63,13 +60,12 @@
        (error "~a is not constructor or class function" cname)))))
 
 (defun object-class-find-function-info (object-class cname)
-  (let* ((info (object-class-info object-class))
-	 (interface-infos (object-class-interface-infos object-class)))
+  (with-accessors ((info info-of) (interface-infos interface-infos-of))
+      object-class
     (or (object-info-find-method info cname)
-	(loop
-	   :for intf :in interface-infos
-	   :for func = (interface-info-find-method intf cname)
-	   :when func :return func))))
+	(iter (for intf :in interface-infos)
+	      (if-let ((func (interface-info-find-method intf cname)))
+		(return func))))))
 
 (defun object-class-build-method (object-class cname)
   (let* ((function-info (object-class-find-function-info object-class cname))
@@ -78,51 +74,42 @@
 	(build-function function-info))))
 
 (defun object-class-find-build-method (object-class cname)
-  (let* ((parent (object-class-parent object-class))
-	 (method-cache (object-class-method-cache object-class))
-         (method (gethash cname method-cache)))
-    (if method
-	method
-	(progn
-	  (setf method (object-class-build-method object-class cname))
-	  (if method
-	      (setf (gethash cname method-cache) method)
-	      (if parent
-		  (setf method (object-class-find-build-method parent cname))
-		  (error "Bad FFI method name ~a" cname)))))))
+  (with-accessors ((parent parent-of) (method-cache method-cache-of))
+      object-class
+    (ensure-gethash-unless-null cname method-cache
+				(object-class-build-method object-class cname)
+				(error "Bad FFI method name ~a" cname))))
 
 (defun build-object-ptr (object-class this)
-  (make-object object-class this))
+  (make-instance 'object-instance :class object-class :this this))
 
 (defun object-class-find-field (object-class name)
-  (let ((fields-dict (object-class-fields-dict object-class)))
+  (with-accessors ((fields-dict fields-dict-of))
+      object-class
     (cdr (or (assoc (c-name name) fields-dict :test #'string=)
 	     (error "Bad FFI field name ~a" name)))))
 
 (defmethod nsget ((object-class object-class) name)
-  (let* ((function-cache (object-class-function-cache object-class))
-	 (cname (c-name name))
-	 (function (gethash cname function-cache)))
-    (if function
-	function
-	(setf (gethash cname function-cache)
-	      (object-class-build-constructor-class-function object-class cname)))))
+  (let ((cname (c-name name)))
+    (ensure-gethash-unless-null cname (function-cache-of object-class)
+				(object-class-build-constructor-class-function object-class cname)
+				(error "Bad FFI constructor/class function name ~a" name))))
 
-(defmethod field ((object object) name)
-  (let* ((object-class (object-class object))
+(defmethod field ((object object-instance) name)
+  (let* ((object-class (gir-class-of object))
 	 (field-info (object-class-find-field object-class name)))
-    (gir.field:get (object-this object) field-info)))
+    (gir.field:get (this-of object) field-info)))
 
-(defmethod set-field! ((object object) name value)
-  (let* ((object-class (object-class object))
+(defmethod set-field! ((object object-instance) name value)
+  (let* ((object-class (gir-class-of object))
 	 (field-info (object-class-find-field object-class name)))
-    (gir.field:set (object-this object) field-info value)))
+    (gir.field:set (this-of object) field-info value)))
 
 (defun property (object name)
-  (get-properties (object-this object) (list name)))
+  (get-properties (this-of object) (list name)))
 
 (defun (setf property) (value object name)
-  (set-properties! (object-this object) (list name value)))
+  (set-properties! (this-of object) (list name value)))
 
 (cffi:defcfun g-object-is-floating :boolean (obj :pointer))
 (cffi:defcfun g-object-ref-sink :pointer (obj :pointer))
@@ -130,7 +117,7 @@
 (cffi:defcfun g-object-unref :void (obj :pointer))
 
 (defun object-setup-gc (object transfer)
-  (let* ((this (object-this object))
+  (let* ((this (this-of object))
 	 (floating? (g-object-is-floating this))
          (a (cffi:pointer-address this)))
     (if (eq transfer :everything)
@@ -139,11 +126,11 @@
     (tg:finalize this (lambda () (g-object-unref (cffi:make-pointer a)))))
   object)
 
-(defmethod nsget ((object object) name)
-  (let* ((object-class (object-class object))
+(defmethod nsget ((object object-instance) name)
+  (let* ((object-class (gir-class-of object))
 	 (cname (c-name name))
          (method (object-class-find-build-method object-class cname))
-	 (this (object-this object)))
+	 (this (this-of object)))
     (lambda (&rest args)
       (apply method (cons this args)))))
 
@@ -164,7 +151,7 @@
   (:simple-parser pobject))
 
 (defmethod cffi:translate-to-foreign (object (type pobject))
-  (object-this object))
+  (this-of object))
 
 (defmethod cffi:translate-from-foreign (pointer (type pobject))
   (gobject (gtype pointer) pointer))
