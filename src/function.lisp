@@ -69,6 +69,8 @@
   (:method (type) (declare (ignore type))))
 (defgeneric free-to-foreign-p (type)
   (:method (type) (declare (ignore type))))
+(defgeneric desc-of-type (type)
+  (:method (type) type))
 
 (defun copy-instance (obj)
   (let ((copy (allocate-instance (class-of obj))))
@@ -168,6 +170,12 @@
       obj
       (find-object-with-class (pointed-type-of obj) class)))
 
+(defmethod desc-of-type ((type pointer-type))
+  (let ((ptype (pointed-type-of type)))
+    (if ptype
+	(desc-of-type ptype)
+	'(or nil :pointer))))
+
 (let ((void-pointer-type-cache (make-instance 'pointer-type)))
   (defun make-void-pointer-type ()
     void-pointer-type-cache))
@@ -243,6 +251,15 @@
       obj
       (find-object-with-class (param-type-of obj) class)))
 
+(defmethod desc-of-type ((type c-array-type))
+  (with-slots (param-type fixed-size length)
+      type
+    (let ((len (or length fixed-size))
+	  (param-desc (desc-of-type param-type)))
+     (if len
+       `(sequence ,param-desc ,len)
+       `(sequence ,param-desc)))))
+
 (defclass object/struct-pointer-type (pointer-type)
   ())
 
@@ -273,6 +290,14 @@
 (defmethod initialize-copy ((obj interface-type) (copy interface-type))
   (copy-slots ((namespace name gir-class)) (obj copy)))
 
+(defun desc-of-interface-type (interface-type)
+  (with-slots (namespace name)
+      interface-type
+    (build-interface-desc-for-name namespace name)))
+
+(defmethod desc-of-type ((interface-type interface-type))
+  (desc-of-interface-type interface-type))
+
 (defclass object-pointer-type (pointer-type interface-type)
   ())
 
@@ -299,6 +324,9 @@
 
 (defmethod initialize-copy ((obj object-pointer-type) (copy object-pointer-type))
   (call-next-method))
+
+(defmethod desc-of-type ((object-pointer-type object-pointer-type))
+  (desc-of-interface-type object-pointer-type))
 
 (let ((object-pointer-type-cache (make-hash-table :test #'equal)))
   (defun make-object-pointer-type (namespace name free-from-foreign)
@@ -338,6 +366,9 @@
 
 (defmethod initialize-copy ((obj struct-pointer-type) (copy struct-pointer-type))
   (call-next-method))
+
+(defmethod desc-of-type ((struct-pointer-type struct-pointer-type))
+  (desc-of-interface-type struct-pointer-type))
 
 (let ((struct-pointer-type-cache (make-hash-table :test #'equal)))
   (defun make-struct-pointer-type (namespace name)
@@ -390,6 +421,9 @@
 (defmethod initialize-copy ((obj union-type) (copy union-type))
   (copy-slots ((size)) (obj copy)))
 
+(defmethod desc-of-type ((union-type union-type))
+  :pointer)
+
 (let ((union-type-cache (make-hash-table :test #'equal)))
   (defun make-union-type (namespace name)
     (ensure-gethash (list namespace name) union-type-cache
@@ -417,6 +451,9 @@
 
 (defmethod initialize-copy ((obj string-pointer-type) (copy string-pointer-type))
   (call-next-method))
+
+(defmethod desc-of-type ((string-pointer-type string-pointer-type))
+  'string)
 
 (let (string-pointer-type-free-from-foreign
       string-pointer-type-dont-free-from-foreign)
@@ -449,6 +486,9 @@
   (defun make-void-type ()
     void-type-cache))
 
+(defmethod desc-of-type ((void-type void-type))
+  :void)
+
 (defclass builtin-type ()
   ((cffi-type :initarg :cffi-type :reader cffi-type-of)))
 
@@ -463,6 +503,15 @@
 
 (defmethod initialize-copy ((obj builtin-type) (copy builtin-type))
   (copy-slots ((cffi-type)) (obj copy)))
+
+(defmethod desc-of-type ((builtin-type builtin-type))
+  (case (cffi-type-of builtin-type)
+    (:boolean 'boolean)
+    ((:int8 :uint8 :int16 :uint16 :int32 :uint32 :int64 :uint64 :short :ushort
+      :int :uint :long :ulong :ssize :size :time-t :gtype :unichar)
+     'integer)
+    ((:float :double) 'real)
+    (t :pointer)))
 
 (defclass argument-type ()
   ((contained-type :initarg :contained-type :reader contained-type-of)
@@ -495,6 +544,9 @@
   (copy-slots ((field) (contained-type) ((copy-contained-type contained-type))) (obj copy)
     (when contained-type
       (setf copy-contained-type (copy-instance contained-type)))))
+
+(defmethod desc-of-type ((argument-type argument-type))
+  (desc-of-type (contained-type-of argument-type)))
 
 (defmethod find-object-with-class ((obj argument-type) class)
   (if (eq (class-of obj) class)
@@ -604,7 +656,8 @@
     (if (eql length -1) nil length)))
 
 (defclass arg-data ()
-  ((type)
+  ((name :reader name-of)
+   (type :reader gir-type-of)
    (is-array-type)
    (direction :reader direction-of)
    (for-array-length-p :initform nil :accessor for-array-length-p-of)
@@ -614,12 +667,13 @@
 
 (defmethod shared-initialize :after ((arg-data arg-data)
 				     slot-names &key arg-info)
-  (with-slots (type is-array-type direction for-array-length
-		    array-length caller-allocates)
+  (with-slots (name type is-array-type direction
+	       array-length caller-allocates)
       arg-data
     (case arg-info
       (:object-argument
-       (setf type (make-object/struct-pointer-type)
+       (setf name :this
+	     type (make-object/struct-pointer-type)
 	     caller-allocates nil
 	     direction :in
 	     is-array-type nil
@@ -627,7 +681,8 @@
       (otherwise
        (let ((type-info (arg-info-get-type arg-info))
 	     (transfer (arg-info-get-ownership-transfer arg-info)))
-	 (setf caller-allocates (arg-info-is-caller-allocates arg-info)
+	 (setf name (info-get-name arg-info)
+	       caller-allocates (arg-info-is-caller-allocates arg-info)
 	       type (build-argument-type type-info transfer
 					 :force-pointer caller-allocates)
 	       direction (arg-info-get-direction arg-info)
@@ -786,7 +841,7 @@
 	  in-count name))
 
 (defclass return-data ()
-  ((type)
+  ((type :reader gir-type-of)
    (array-length :reader array-length-of)))
 
 (defmethod shared-initialize :after ((return-data return-data)
@@ -874,3 +929,53 @@
 (defmethod build-interface ((info function-info))
   (build-function info))
 
+(defclass function-desc ()
+  ((info :initarg :func-info)
+   (arguments-desc :reader arguments-desc-of)
+   (returns-desc :reader returns-desc-of)))
+
+(defmethod shared-initialize :after ((func-desc function-desc) slot-names
+				     &key return-interface)
+  (declare (ignore slot-names))
+  (with-slots (info arguments-desc returns-desc)
+      func-desc
+    (multiple-value-bind (args-data in-count out-count in-array-length-count)
+	(make-args-data info)
+      (declare (ignore in-count out-count in-array-length-count))
+      (let ((ret-data (make-instance 'return-data :func-info info
+				     :return-interface return-interface))
+	    (in-args-desc nil)
+	    (out-args-desc nil))
+	(push (make-instance 'variable-desc :name :return-value
+			     :type-desc (desc-of-type (gir-type-of ret-data)))
+	      out-args-desc)
+	(iter (for arg-data :in args-data)
+	      (with-slots (name type direction for-array-length-p)
+		  arg-data
+		(unless (or for-array-length-p
+			    (eq name :this))
+		  (let ((arg-desc (make-instance 'variable-desc :name name
+						 :type-desc (desc-of-type type))))
+		   (ecase direction
+		     (:in (push arg-desc in-args-desc))
+		     (:out (push arg-desc out-args-desc))
+		     (:in-out (push arg-desc in-args-desc)
+			      (push arg-desc out-args-desc)))))))
+	(setf arguments-desc (nreverse in-args-desc)
+	      returns-desc (nreverse out-args-desc))))))
+
+(defmethod print-object ((func-desc function-desc) s)
+  (with-slots (info arguments-desc returns-desc)
+      func-desc
+    (format s "#F<~a~:a: ~a>" (info-get-name info)
+	    arguments-desc returns-desc)))
+
+(defun build-function-desc (func-info &key return-interface)
+  (make-instance 'function-desc :func-info func-info
+		 :return-interface return-interface))
+
+(defmethod build-interface-desc ((func-info function-info))
+  (make-instance 'function-desc :func-info func-info))
+
+(defun build-type-desc (type-info)
+  (desc-of-type (parse-type-info type-info :nothing)))

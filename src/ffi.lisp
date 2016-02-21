@@ -98,3 +98,16 @@
 (defun build-interface-desc-for-name (nsname name)
   (let ((namespace (require-namespace nsname)))
     (nsget-desc namespace name)))
+
+(defclass variable-desc ()
+  ((name :initarg :name :reader name-of)
+   (type-desc :initarg :type-desc :reader type-desc-of)))
+
+(defmethod print-object ((var-desc variable-desc) s)
+  (with-slots (name type-desc)
+      var-desc
+    (format s "#V<~a: ~a>" name type-desc)))
+
+(defun build-variable-desc (name type-info)
+  (make-instance 'variable-desc :name name
+		 :type-desc (build-type-desc type-info)))

@@ -158,4 +158,10 @@
    #:connect
 
    #:nget-desc
-   #:nlist-desc))
+   #:nlist-desc
+   #:vairable-desc
+   #:name-of
+   #:type-desc-of
+   #:function-desc
+   #:arguments-desc-of
+   #:return-desc-of))
