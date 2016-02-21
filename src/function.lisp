@@ -429,6 +429,26 @@
     (ensure-gethash (list namespace name) union-type-cache
 		    (make-instance 'union-type :namespace namespace :name name))))
 
+(defclass enum-type (interface-type)
+  ())
+
+(defmethod mem-size ((enum-type enum-type))
+  (declare (ignore enum-type))
+  (cffi:foreign-type-size :uint))
+
+(defmethod mem-set (pos value (enum-type enum-type))
+  (declare (ignore enum-type))
+  (setf (cffi:mem-ref pos :uint) value))
+
+(defmethod mem-get (pos (enum-type enum-type))
+  (declare (ignore enum-type))
+  (cffi:mem-ref pos :uint))
+
+(let ((enum-type-cache (make-hash-table :test #'equal)))
+  (defun make-enum-type (namespace name)
+    (ensure-gethash (list namespace name) enum-type-cache
+		    (make-instance 'enum-type :namespace namespace :name name))))
+
 (defclass string-pointer-type (pointer-type)
   ()
   (:default-initargs :free-to-foreign t))
@@ -588,6 +608,7 @@
     (typecase interface-info
       (struct-info (make-struct-type namespace name))
       (union-info (make-union-type namespace name))
+      (enum-info (make-enum-type namespace name))
       (t (find-parse-general-type-info :uint)))))
 
 (defun parse-general-type-info (tag)
