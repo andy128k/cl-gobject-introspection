@@ -1,6 +1,21 @@
 (in-package :gir)
 
+(defmacro ensure-gethash-unless-null (key hash-table default &optional on-nil)
+  (with-gensyms (value nvalue vkey vhash-table)
+    `(let ((,vkey ,key)
+	   (,vhash-table ,hash-table))
+       (if-let ((,value (gethash ,vkey ,vhash-table)))
+	 (values ,value t)
+	 (values (if-let ((,nvalue ,default))
+		   (setf (gethash ,vkey ,vhash-table) ,nvalue)
+		   (progn ,on-nil nil))
+		 nil)))))
+
 (defgeneric nsget (namespace name))
+(defgeneric build-interface (info))
+(defgeneric this-of (obj)
+  (:method (ptr) (etypecase ptr (cffi:foreign-pointer ptr))))
+(defgeneric gir-class-of (obj))
 
 (defun nget (namespace &rest names)
   (dolist (name names namespace)
@@ -8,62 +23,99 @@
 
 (defmacro invoke (func &rest args)
   (if (listp func)
-  `(funcall (nget ,@func) ,@args)
-  `(funcall ,func ,@args)))
+      `(funcall (nget ,@func) ,@args)
+      `(funcall ,func ,@args)))
 
 (defmethod nsget ((namespace function) name)
   (funcall namespace name))
 
-(defun build-interface (info)
-  (etypecase info
-    (function-info (build-function info))
-    (object-info (build-object-class info))
-    (struct-info (build-struct-class info))
-    (enum-info (build-enum info))
-    (constant-info (constant-info-get-value info))))
+(defmethod build-interface ((info constant-info))
+  (constant-info-get-value info))
 
-(defstruct
-    (namespace
-      (:constructor make-namespace (name version interface-cache)))
-  name
-  version
-  interface-cache)
+(defgeneric nsget-desc (namespace name))
+(defgeneric nslist-desc (namespace)
+  (:method (namespace) (declare (ignore namespace))))
+(defgeneric build-interface-desc (info)
+  (:method (info) (build-interface info)))
+(defgeneric list-fields-desc (desc))
+(defgeneric get-field-desc (desc name))
+(defgeneric list-properties-desc (desc))
+(defgeneric get-property-desc (desc name))
+(defgeneric list-methods-desc (desc))
+(defgeneric get-method-desc (desc name))
+(defgeneric list-class-functions-desc (desc))
+(defgeneric list-constructors-desc (desc))
+
+(defun nget-desc (namespace &rest names)
+  (dolist (name names namespace)
+    (setf namespace (nsget-desc namespace name))))
+
+(defun nlist-desc (namespace &rest names)
+  (nslist-desc (apply #'nget-desc namespace names)))
+
+(defclass namespace ()
+  ((name :initarg :name :reader name-of)
+   (version :reader version-of)
+   (interface-cache :initform (make-hash-table :test 'equal)
+		    :reader cache-of)))
+
+(defmethod print-object ((ns namespace) s)
+  (format s "#N<~a(~a)>" (name-of ns) (version-of ns)))
+
+(defmethod shared-initialize :after ((namespace namespace) slot-names
+				     &key name version)
+  (declare (ignore slot-names))
+  (repository-require nil name (if version version (cffi:null-pointer)))
+  (setf (slot-value namespace 'version)
+	(repository-get-version nil name)))
+
+(defmethod nsget ((namespace namespace) name)
+   (let ((cname (c-name name)))
+     (ensure-gethash-unless-null cname (cache-of namespace)
+				 (if-let ((info (repository-find-by-name nil (name-of namespace) cname)))
+				   (build-interface info))
+				 (warn "No such FFI name ~a" name))))
+
+(defmethod nsget-desc ((namespace namespace) name)
+  (build-interface-desc (repository-find-by-name nil (name-of namespace)
+						 (c-name name))))
 
 (defvar *namespace-cache* (make-hash-table :test 'equal))
 
-(defun build-ffi (namespace &optional version)
-  (repository-require nil namespace (if version version (cffi:null-pointer)))
-  (make-namespace namespace version (make-hash-table :test 'equal)))
-
-(defun ffi (namespace &optional version)
+(defun require-namespace (namespace &optional version)
   (let ((cache (gethash namespace *namespace-cache*)))
     (if (and cache (or (null version)
-		       (equal version (namespace-version cache))))
+		       (equal version (version-of cache))))
 	cache
 	(setf (gethash namespace *namespace-cache*)
-	      (build-ffi namespace version)))))
+	      (make-instance 'namespace :name namespace :version version)))))
 
-(declaim (inline require-namespace))
-(defun require-namespace (namespace &optional version)
-  (ffi namespace version))
-
-(defmethod nsget ((namespace namespace) name)
-   (let* ((nsname (namespace-name namespace))
-	  (interface-cache (namespace-interface-cache namespace))
-	  (cname (c-name name))
-	  (interface (gethash cname interface-cache)))
-     (if interface
-	 interface
-	 (let ((info (repository-find-by-name nil nsname cname)))
-	   (if info
-	       (setf (gethash cname interface-cache) (build-interface info))
-	       (warn "No such FFI name ~a" name))))))
+(declaim (inline ffi))
+(defun ffi (namespace &optional version)
+  (require-namespace namespace version))
 
 (defun find-build-interface-for-name (nsname name)
   (let ((namespace (require-namespace nsname)))
       (nsget namespace name)))
 
 (defun find-build-interface (info)
-  (let* ((namespace (info-get-namespace info))
-	 (ffi (ffi namespace)))
-    (nsget ffi (info-get-name info))))
+  (let* ((nsname (info-get-namespace info))
+	 (namespace (require-namespace nsname)))
+    (nsget namespace (info-get-name info))))
+
+(defun build-interface-desc-for-name (nsname name)
+  (let ((namespace (require-namespace nsname)))
+    (nsget-desc namespace name)))
+
+(defclass variable-desc ()
+  ((name :initarg :name :reader name-of)
+   (type-desc :initarg :type-desc :reader type-desc-of)))
+
+(defmethod print-object ((var-desc variable-desc) s)
+  (with-slots (name type-desc)
+      var-desc
+    (format s "#V<~a: ~a>" name type-desc)))
+
+(defun build-variable-desc (name type-info)
+  (make-instance 'variable-desc :name name
+		 :type-desc (build-type-desc type-info)))

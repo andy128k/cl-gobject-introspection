@@ -5,7 +5,7 @@
 (defpackage #:gir
   (:use #:common-lisp #:alexandria #:iterate)
   (:shadow #:get-properties)
-  (:export 
+  (:export
    #:argument
    #:base-info
    #:type-info
@@ -26,7 +26,7 @@
    #:property-info
    #:constant-info
    #:arg-info
-   
+
    #:repository-get-dependencies
    #:repository-is-registered
    #:repository-find-by-gtype
@@ -155,4 +155,27 @@
    #:property
    #:allocate-struct
    #:free-struct
-   #:connect))
+   #:connect
+
+   #:nget-desc
+   #:nlist-desc
+   #:vairable-desc
+   #:name-of
+   #:type-desc-of
+   #:function-desc
+   #:arguments-desc-of
+   #:return-desc-of
+   #:object-class
+   #:gir-class-of
+   #:parent-of
+   #:list-fields-desc
+   #:get-field-desc
+   #:list-properties-desc
+   #:get-property-desc
+   #:list-methods-desc
+   #:get-method-desc
+   #:list-class-functions-desc
+   #:list-constructors-desc
+   #:struct-class
+   #:enum-desc
+   #:values-of))

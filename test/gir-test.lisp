@@ -8,28 +8,28 @@
 
 (in-suite gir)
 
-(test ffi
-      "Test the ffi function"
+(test namespace
+      "Test the namespace function"
       (is (eql 'gir::namespace
-	       (progn (setf *glib* (ffi "GLib"))
+	       (progn (setf *glib* (require-namespace "GLib"))
 		      (type-of *glib*))))
       (is (eql 'gir::namespace
-	       (progn (setf *gio* (ffi "Gio"))
+	       (progn (setf *gio* (require-namespace "Gio"))
 		      (type-of *gio*))))
       (is (eql 'gir::namespace
-	       (progn (setf *gtk* (ffi "Gtk"))
+	       (progn (setf *gtk* (require-namespace "Gtk"))
 		      (type-of *gtk*)))))
 
-(test (enum :depends-on ffi)
+(test (enum :depends-on namespace)
       "Test the enumeration"
       (is (= 0 (nget *gtk* "WindowType" :toplevel))))
 
-(test (const :depends-on ffi)
+(test (const :depends-on namespace)
       "Test the constant"
       (is (= 2.718282d0 (nget *glib* "E")))
       (is (equal "i" (nget *glib* "GINT32_FORMAT"))))
 
-(test (function :depends-on ffi)
+(test (function :depends-on namespace)
       "Test the function"
       ;; in-arguments, #\A
       (is-true (invoke (*glib* 'unichar-isalpha) #x41))
@@ -60,7 +60,7 @@
 
 (test (struct-constructor :depends-on function)
       "Test the struct constructor"
-      (is (eql 'gir::struct
+      (is (eql 'gir::struct-instance
 	       (progn
 		 (setf *entry* (invoke (*gtk* "TargetEntry" 'new)
 				       *entry-target* *entry-flags1* 0))
@@ -68,7 +68,7 @@
 
 (test (struct-this :depends-on struct-constructor)
       "Test the struct this pointer"
-      (is-true (pointerp (gir::struct-this *entry*))))
+      (is-true (pointerp (gir::this-of *entry*))))
 
 (test (struct-field :depends-on struct-constructor)
       "Test the struct field get/set"
@@ -88,7 +88,7 @@
 
 (test (struct-foreign-obj :depends-on (and struct-method struct-field))
       "Test the struct foreign object support"
-      (is-true (progn (setf *entry-this* (gir::struct-this *entry*))
+      (is-true (progn (setf *entry-this* (gir::this-of *entry*))
 		      (pointerp *entry-this*)))
       (is (equal (list *entry-target* *entry-flags2*)
 		 (let ((entry (gir::build-struct-ptr (nget *gtk* "TargetEntry")
@@ -126,7 +126,7 @@
 
 (test (object-constructor :depends-on (and function enum))
       "Test the object constructor"
-      (is (eql 'gir::object
+      (is (eql 'gir::object-instance
 	       (let ((flags (nget *gio* "ApplicationFlags" :flags_none)))
 		 (setf *app* (invoke (*gio* "Application" 'new)
 				     *app-id1* flags))
@@ -134,7 +134,7 @@
 
 (test (object-this :depends-on object-constructor)
       "Test the object this pointer"
-      (is-true (pointerp (gir::object-this *app*))))
+      (is-true (pointerp (gir::this-of *app*))))
 
 (test (object-method :depends-on object-constructor)
       "Test the object constructor"
@@ -170,7 +170,7 @@
 			   (invoke (file-info 'get-modification-time))
 			 (declare (ignore ret))
 			 time-val))
-		      'gir::struct)))
+		      'gir::struct-instance)))
 
 (in-suite gir)
 
