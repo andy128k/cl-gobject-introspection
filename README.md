@@ -24,8 +24,7 @@ function is
   version : string = nil
 ```
 
-Returns interface to repository with name `repository-name`. In
-current implementation repository is function.
+Returns interface to repository with name `repository-name`.
 
 # 2. Using interface objects
 
@@ -200,3 +199,14 @@ Getting and setting property are done with property and setf.
 
 Connects signal handler to object. If handler is a string o symbol, then
 it denotes C-function.
+
+# 6. Description
+
+Various description information, such as signature of function, can be
+gotten via the description functions.
+
+```racket
+(gir:nget-desc *gtk* 'init)
+#F<init(#V<argv: (SEQUENCE STRING)>): (#V<RETURN-VALUE: VOID>
+                                       #V<argv: (SEQUENCE STRING)>)>
+```
