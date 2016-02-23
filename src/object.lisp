@@ -169,7 +169,7 @@
 (defmethod nsget-desc ((object-class object-class) name)
   (multiple-value-bind (function-info return-interface)
       (object-class-get-constructor-class-function-info object-class (c-name name))
-    (build-function-desc function-info :return-interface return-interface)))
+    (build-callable-desc function-info :return-interface return-interface)))
 
 (defmethod list-fields-desc ((object-class object-class))
   (let ((fields-dict (fields-dict-of object-class)))
@@ -199,23 +199,23 @@
   (let ((info (info-of object-class)))
     (iter (for method-info :in (object-info-get-methods info))
 	  (when (method? (function-info-get-flags method-info))
-	    (collect (build-function-desc method-info))))))
+	    (collect (build-callable-desc method-info))))))
 
 (defmethod get-method-desc ((object-class object-class) name)
   (let* ((cname (c-name name))
 	 (func-info (object-class-find-method-function-info object-class cname)))
     (if func-info
-	(build-function-desc func-info)
+	(build-callable-desc func-info)
 	(error "~a is not method name" cname))))
 
 (defmethod list-class-functions-desc ((object-class object-class))
   (let ((info (info-of object-class)))
     (iter (for method-info :in (object-info-get-methods info))
 	  (when (class-function? (function-info-get-flags method-info))
-	    (collect (build-function-desc method-info))))))
+	    (collect (build-callable-desc method-info))))))
 
 (defmethod list-constructors-desc ((object-class object-class))
   (let ((info (info-of object-class)))
     (iter (for method-info :in (object-info-get-methods info))
 	  (when (constructor? (function-info-get-flags method-info))
-	    (collect (build-function-desc method-info :return-interface info))))))
+	    (collect (build-callable-desc method-info :return-interface info))))))

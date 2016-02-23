@@ -162,7 +162,7 @@
    #:vairable-desc
    #:name-of
    #:type-desc-of
-   #:function-desc
+   #:callable-desc
    #:arguments-desc-of
    #:return-desc-of
    #:object-class
