@@ -176,6 +176,8 @@
    #:get-method-desc
    #:list-class-functions-desc
    #:list-constructors-desc
+   #:list-signals-desc
+   #:get-signal-desc
    #:struct-class
    #:enum-desc
    #:values-of))
