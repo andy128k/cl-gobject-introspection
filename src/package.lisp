@@ -178,6 +178,8 @@
    #:list-constructors-desc
    #:list-signals-desc
    #:get-signal-desc
+   #:interface-desc
+   #:list-interfaces-desc
    #:struct-class
    #:enum-desc
    #:values-of))

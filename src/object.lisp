@@ -240,3 +240,30 @@
     (if signal-info
 	(build-callable-desc signal-info)
 	(error "~a is not signal name" cname))))
+
+(defclass interface-desc ()
+  ((info :initarg :info :reader info-of)))
+
+(defmethod print-object ((interface-desc interface-desc) s)
+  (format s "I<~a>" (info-get-name (info-of interface-desc))))
+
+(defun list-interfaces-desc (object-class)
+  (iter (for intf-info :in (interface-infos-of object-class))
+	(collect (make-instance 'interface-desc :info intf-info))))
+
+(defmethod list-properties-desc ((interface-desc interface-desc))
+  (let ((info (info-of interface-desc)))
+    (iter (for prop-info :in (interface-info-get-properties info))
+	  (collect (build-variable-desc (info-get-name prop-info)
+					(property-info-get-type prop-info))))))
+
+(defmethod list-methods-desc ((interface-desc interface-desc))
+  (let ((info (info-of interface-desc)))
+    (iter (for method-info :in (interface-info-get-methods info))
+	  (when (method? (function-info-get-flags method-info))
+	    (collect (build-callable-desc method-info))))))
+
+(defmethod list-signals-desc ((interface-desc interface-desc))
+  (let ((info (info-of interface-desc)))
+    (iter (for signal-info :in (interface-info-get-signals info))
+	  (collect (build-callable-desc signal-info)))))
