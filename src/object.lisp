@@ -73,16 +73,18 @@
 		(return func))))))
 
 (defun object-class-find-method-function-info (object-class cname)
-  (let* ((function-info (object-class-find-function-info object-class cname))
-	 (flags (and function-info (function-info-get-flags function-info))))
-    (and function-info (method? flags) function-info)))
+  (if-let ((function-info (object-class-find-function-info object-class cname)))
+    (when (method? (function-info-get-flags function-info))
+      function-info)
+    (if-let ((parent (parent-of object-class)))
+      (object-class-find-method-function-info parent cname))))
 
 (defun object-class-build-method (object-class cname)
   (if-let ((func-info (object-class-find-method-function-info object-class cname)))
     (and func-info (build-function func-info))))
 
 (defun object-class-find-build-method (object-class cname)
-  (with-accessors ((parent parent-of) (method-cache method-cache-of))
+  (with-accessors ((method-cache method-cache-of))
       object-class
     (ensure-gethash-unless-null cname method-cache
 				(object-class-build-method object-class cname)
