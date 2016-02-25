@@ -162,7 +162,7 @@
    #:vairable-desc
    #:name-of
    #:type-desc-of
-   #:function-desc
+   #:callable-desc
    #:arguments-desc-of
    #:return-desc-of
    #:object-class
@@ -176,6 +176,10 @@
    #:get-method-desc
    #:list-class-functions-desc
    #:list-constructors-desc
+   #:list-signals-desc
+   #:get-signal-desc
+   #:interface-desc
+   #:list-interfaces-desc
    #:struct-class
    #:enum-desc
    #:values-of))

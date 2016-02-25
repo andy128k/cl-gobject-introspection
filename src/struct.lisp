@@ -110,7 +110,7 @@
       (apply method (cons (this-of struct) args)))))
 
 (defmethod nsget-desc ((struct-class struct-class) name)
-  (build-function-desc (struct-class-get-constructor-info struct-class name)
+  (build-callable-desc (struct-class-get-constructor-info struct-class name)
 		       :return-interface (info-of struct-class)))
 
 (defmethod list-fields-desc ((struct-class struct-class))
@@ -127,14 +127,14 @@
   (let ((info (info-of struct-class)))
     (iter (for method-info :in (struct-info-get-methods info))
 	  (when (method? (function-info-get-flags method-info))
-	    (collect (build-function-desc method-info))))))
+	    (collect (build-callable-desc method-info))))))
 
 (defmethod get-method-desc ((struct-class struct-class) name)
-  (build-function-desc (struct-class-get-method-info struct-class
+  (build-callable-desc (struct-class-get-method-info struct-class
 						     (c-name name))))
 
 (defmethod list-constructors-desc ((struct-class struct-class))
   (let ((info (info-of struct-class)))
     (iter (for method-info :in (struct-info-get-methods info))
 	  (when (constructor? (function-info-get-flags method-info))
-	    (collect (build-function-desc method-info))))))
+	    (collect (build-callable-desc method-info))))))

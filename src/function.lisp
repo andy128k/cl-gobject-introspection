@@ -705,11 +705,11 @@
   (defun object-arg-data ()
     o-a-d-cache))
 
-(defun make-args-data (info)
+(defun make-args-data (info &optional methodp)
   ;; if construct + in-arg
   (let* ((n-args (g-callable-info-get-n-args info))
 	 (args-data
-	  (when (method? (function-info-get-flags info))
+	  (when methodp
 	    (list (object-arg-data))))
 	 (in-count (length args-data))
 	 (out-count 0)
@@ -855,11 +855,11 @@
    (array-length :reader array-length-of)))
 
 (defmethod shared-initialize :after ((return-data return-data)
-				     slot-names &key func-info return-interface)
+				     slot-names &key callable-info return-interface)
   (with-slots (type array-length)
       return-data
-    (let ((type-info (callable-info-get-return-type func-info))
-	  (transfer (callable-info-get-caller-owns func-info)))
+    (let ((type-info (callable-info-get-return-type callable-info))
+	  (transfer (callable-info-get-caller-owns callable-info)))
       (setf type
 	    (if return-interface
 		(let ((intf-ptr-type (make-interface-pointer-type return-interface :everything)))
@@ -905,9 +905,9 @@
 
 (defun build-function (info &key return-interface)
   (multiple-value-bind (args-data in-count out-count in-array-length-count)
-      (make-args-data info)
+      (make-args-data info (method? (function-info-get-flags info)))
     (let* ((name (info-get-name info))
-	   (ret-data (make-instance 'return-data :func-info info
+	   (ret-data (make-instance 'return-data :callable-info info
 				    :return-interface return-interface)))
       (lambda (&rest args-in)
 	(check-args args-in (- in-count in-array-length-count) name)
@@ -939,20 +939,20 @@
 (defmethod build-interface ((info function-info))
   (build-function info))
 
-(defclass function-desc ()
-  ((info :initarg :func-info)
+(defclass callable-desc ()
+  ((info :initarg :callable-info)
    (arguments-desc :reader arguments-desc-of)
    (returns-desc :reader returns-desc-of)))
 
-(defmethod shared-initialize :after ((func-desc function-desc) slot-names
+(defmethod shared-initialize :after ((call-desc callable-desc) slot-names
 				     &key return-interface)
   (declare (ignore slot-names))
   (with-slots (info arguments-desc returns-desc)
-      func-desc
+      call-desc
     (multiple-value-bind (args-data in-count out-count in-array-length-count)
 	(make-args-data info)
       (declare (ignore in-count out-count in-array-length-count))
-      (let ((ret-data (make-instance 'return-data :func-info info
+      (let ((ret-data (make-instance 'return-data :callable-info info
 				     :return-interface return-interface))
 	    (in-args-desc nil)
 	    (out-args-desc nil))
@@ -962,8 +962,7 @@
 	(iter (for arg-data :in args-data)
 	      (with-slots (name type direction for-array-length-p)
 		  arg-data
-		(unless (or for-array-length-p
-			    (eq name :this))
+		(unless for-array-length-p
 		  (let ((arg-desc (make-instance 'variable-desc :name name
 						 :type-desc (desc-of-type type))))
 		   (ecase direction
@@ -974,18 +973,18 @@
 	(setf arguments-desc (nreverse in-args-desc)
 	      returns-desc (nreverse out-args-desc))))))
 
-(defmethod print-object ((func-desc function-desc) s)
+(defmethod print-object ((call-desc callable-desc) s)
   (with-slots (info arguments-desc returns-desc)
-      func-desc
+      call-desc
     (format s "#F<~a~:a: ~a>" (info-get-name info)
 	    arguments-desc returns-desc)))
 
-(defun build-function-desc (func-info &key return-interface)
-  (make-instance 'function-desc :func-info func-info
+(defun build-callable-desc (callable-info &key return-interface)
+  (make-instance 'callable-desc :callable-info callable-info
 		 :return-interface return-interface))
 
-(defmethod build-interface-desc ((func-info function-info))
-  (make-instance 'function-desc :func-info func-info))
+(defmethod build-interface-desc ((call-info callable-info))
+  (make-instance 'callable-desc :callable-info call-info))
 
 (defun build-type-desc (type-info)
   (desc-of-type (parse-type-info type-info :nothing)))

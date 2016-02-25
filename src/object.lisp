@@ -169,7 +169,7 @@
 (defmethod nsget-desc ((object-class object-class) name)
   (multiple-value-bind (function-info return-interface)
       (object-class-get-constructor-class-function-info object-class (c-name name))
-    (build-function-desc function-info :return-interface return-interface)))
+    (build-callable-desc function-info :return-interface return-interface)))
 
 (defmethod list-fields-desc ((object-class object-class))
   (let ((fields-dict (fields-dict-of object-class)))
@@ -199,23 +199,71 @@
   (let ((info (info-of object-class)))
     (iter (for method-info :in (object-info-get-methods info))
 	  (when (method? (function-info-get-flags method-info))
-	    (collect (build-function-desc method-info))))))
+	    (collect (build-callable-desc method-info))))))
 
 (defmethod get-method-desc ((object-class object-class) name)
   (let* ((cname (c-name name))
 	 (func-info (object-class-find-method-function-info object-class cname)))
     (if func-info
-	(build-function-desc func-info)
+	(build-callable-desc func-info)
 	(error "~a is not method name" cname))))
 
 (defmethod list-class-functions-desc ((object-class object-class))
   (let ((info (info-of object-class)))
     (iter (for method-info :in (object-info-get-methods info))
 	  (when (class-function? (function-info-get-flags method-info))
-	    (collect (build-function-desc method-info))))))
+	    (collect (build-callable-desc method-info))))))
 
 (defmethod list-constructors-desc ((object-class object-class))
   (let ((info (info-of object-class)))
     (iter (for method-info :in (object-info-get-methods info))
 	  (when (constructor? (function-info-get-flags method-info))
-	    (collect (build-function-desc method-info :return-interface info))))))
+	    (collect (build-callable-desc method-info :return-interface info))))))
+
+(defmethod list-signals-desc ((object-class object-class))
+  (let ((info (info-of object-class)))
+    (iter (for signal-info :in (object-info-get-signals info))
+	  (collect (build-callable-desc signal-info)))))
+
+(defun object-class-find-signal-info (object-class cname)
+  (let ((object-info (info-of object-class)))
+    (or (object-info-find-method object-info cname)
+	(iter (for intf-info :in (object-info-get-interfaces object-info))
+	      (when-let ((signal-info (interface-info-find-signal intf-info cname)))
+		(return signal-info)))
+	(when-let ((parent (parent-of object-class)))
+	  (object-class-find-signal-info parent cname)))))
+
+(defmethod get-signal-desc ((object-class object-class) name)
+  (let* ((cname (c-name name))
+	 (signal-info (object-class-find-signal-info object-class cname)))
+    (if signal-info
+	(build-callable-desc signal-info)
+	(error "~a is not signal name" cname))))
+
+(defclass interface-desc ()
+  ((info :initarg :info :reader info-of)))
+
+(defmethod print-object ((interface-desc interface-desc) s)
+  (format s "I<~a>" (info-get-name (info-of interface-desc))))
+
+(defun list-interfaces-desc (object-class)
+  (iter (for intf-info :in (interface-infos-of object-class))
+	(collect (make-instance 'interface-desc :info intf-info))))
+
+(defmethod list-properties-desc ((interface-desc interface-desc))
+  (let ((info (info-of interface-desc)))
+    (iter (for prop-info :in (interface-info-get-properties info))
+	  (collect (build-variable-desc (info-get-name prop-info)
+					(property-info-get-type prop-info))))))
+
+(defmethod list-methods-desc ((interface-desc interface-desc))
+  (let ((info (info-of interface-desc)))
+    (iter (for method-info :in (interface-info-get-methods info))
+	  (when (method? (function-info-get-flags method-info))
+	    (collect (build-callable-desc method-info))))))
+
+(defmethod list-signals-desc ((interface-desc interface-desc))
+  (let ((info (info-of interface-desc)))
+    (iter (for signal-info :in (interface-info-get-signals info))
+	  (collect (build-callable-desc signal-info)))))

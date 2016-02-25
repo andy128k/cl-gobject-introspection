@@ -45,6 +45,8 @@
 (defgeneric get-method-desc (desc name))
 (defgeneric list-class-functions-desc (desc))
 (defgeneric list-constructors-desc (desc))
+(defgeneric list-signals-desc (desc))
+(defgeneric get-signal-desc (desc name))
 
 (defun nget-desc (namespace &rest names)
   (dolist (name names namespace)
