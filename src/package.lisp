@@ -156,6 +156,7 @@
    #:allocate-struct
    #:free-struct
    #:connect
+   #:disconnect
 
    #:nget-desc
    #:nlist-desc
