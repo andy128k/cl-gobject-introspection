@@ -100,7 +100,7 @@
                                       flags)))))
     handler-id))
 
-(cffi:defcallback g-signal-handler-disconnect :void (instance :pointer) (id :ulong))
+(cffi:defcfun g-signal-handler-disconnect :void (instance :pointer) (id :ulong))
 (defun disconnect (g-object id)
   (let* ((object-ptr (if (typep g-object 'object-instance)
                          (this-of g-object)
