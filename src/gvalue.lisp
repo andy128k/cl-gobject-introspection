@@ -16,6 +16,21 @@
   (g-type :ulong)
   (data (:union g-value-data) :count 2))
 
+(cffi:define-foreign-type pvariant ()
+  ()
+  (:documentation "pointer to GVariant")
+  (:actual-type :pointer)
+  (:simple-parser pvariant))
+
+(defmethod cffi:translate-to-foreign (object (type pvariant))
+  (this-of object))
+
+(defmethod cffi:translate-from-foreign (pointer (type pvariant))
+;; #define G_TYPE_FUNDAMENTAL_SHIFT (2)
+;; #define G_TYPE_MAKE_FUNDAMENTAL(x) ((GType) ((x) << G_TYPE_FUNDAMENTAL_SHIFT))
+;; #define G_TYPE_VARIANT G_TYPE_MAKE_FUNDAMENTAL (21)
+  (gobject (ash 21 2) pointer))
+
 (cffi:defcfun g-value-init :void (value :pointer) (gtype :ulong))
 
 (cffi:defcfun g-value-get-boolean :boolean (g-value :pointer))
@@ -36,7 +51,7 @@
 (cffi:defcfun g-value-get-boxed :pointer (g-value :pointer))
 (cffi:defcfun g-value-get-pointer :pointer (g-value :pointer))
 (cffi:defcfun g-value-get-object pobject (g-value :pointer))
-(cffi:defcfun g-value-get-variant :pointer (g-value pobject))
+(cffi:defcfun g-value-get-variant pvariant (g-value :pointer))
 
 (cffi:defcfun g-value-set-boolean :void (g-value :pointer) (val :boolean))
 (cffi:defcfun g-value-set-char :void (g-value :pointer) (val :char))
@@ -56,7 +71,7 @@
 (cffi:defcfun g-value-set-boxed :void (g-value :pointer) (val :pointer))
 (cffi:defcfun g-value-set-pointer :void (g-value :pointer) (val :pointer))
 (cffi:defcfun g-value-set-object :void (g-value :pointer) (val pobject))
-(cffi:defcfun g-value-set-variant :void (g-value :pointer) (val :pointer))
+(cffi:defcfun g-value-set-variant :void (g-value :pointer) (val pvariant))
 
 (cffi:defcfun g-type-fundamental :ulong (id :ulong))
 
