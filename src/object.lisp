@@ -44,6 +44,9 @@
 (defmethod build-interface ((info object-info))
   (make-instance 'object-class :info info))
 
+(defmethod build-interface ((info interface-info))
+  (make-instance 'interface-desc :info info))
+
 (defun object-class-get-constructor-class-function-info (object-class cname)
   (let* ((info (info-of object-class))
 	 (function-info (object-info-find-method info cname))
@@ -136,10 +139,14 @@
     (tg:finalize this (lambda () (g-object-unref (cffi:make-pointer a)))))
   object)
 
+(defgeneric find-build-method (object-class cname))
+(defmethod find-build-method ((object-class object-class) cname)
+  (object-class-find-build-method object-class cname))
+
 (defmethod nsget ((object object-instance) name)
   (let* ((object-class (gir-class-of object))
 	 (cname (c-name name))
-         (method (object-class-find-build-method object-class cname))
+         (method (find-build-method object-class cname))
 	 (this (this-of object)))
     (lambda (&rest args)
       (apply method (cons this args)))))
@@ -243,6 +250,11 @@
 
 (defclass interface-desc ()
   ((info :initarg :info :reader info-of)))
+
+(defmethod find-build-method ((object-class interface-desc) cname)
+  (let ((func-info (interface-info-find-method
+		    (info-of object-class) cname)))
+    (and func-info (build-function func-info))))
 
 (defmethod print-object ((interface-desc interface-desc) s)
   (format s "I<~a>" (info-get-name (info-of interface-desc))))

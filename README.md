@@ -157,7 +157,7 @@ To get C pointer to an object, use this-of.
 It is possible to make an object from a pointer:
 
 ```racket
-(defvar *window-from-ptr* (funcall (gir:nget *gtk* "Window") window-ptr))
+(defvar *window-from-ptr* (gir:build-object-ptr (gir:nget *gtk* "Window") window-ptr))
 ```
 
 `window-ptr` should be `cffi:foreign-pointer` here.

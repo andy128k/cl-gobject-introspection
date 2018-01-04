@@ -147,6 +147,7 @@
    #:typelib-free
 
    #:build-translator
+   #:build-object-ptr
 
    #:ffi #:require-namespace
    #:nget
