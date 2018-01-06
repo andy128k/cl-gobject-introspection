@@ -152,14 +152,16 @@
       (apply method (cons this args)))))
 
 (defun gobject (gtype ptr)
-  (let ((info (repository-find-by-gtype nil gtype))
-	object-class)
-    (if (and info (eq (info-get-type info) :object))
-	(progn
-	  (setf object-class (find-build-interface info))
-	  (build-object-ptr object-class ptr))
+  (let* ((info (repository-find-by-gtype nil gtype))
+	 (info-type (and info (info-get-type info)))
+	 object-class)
+    (if (member info-type '(:object :struct)))
+	(let ((object-class (find-build-interface info)))
+	  (if (eq info-type :object)
+	    (build-object-ptr object-class ptr)
+	    (build-struct-ptr object-class ptr)))
         (error "gtype ~a not found in GI. Found ~a" 
-               gtype (info-get-type info)))))
+               gtype info-type))))
 
 (cffi:define-foreign-type pobject ()
   ()
