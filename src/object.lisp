@@ -155,7 +155,7 @@
   (let* ((info (repository-find-by-gtype nil gtype))
 	 (info-type (and info (info-get-type info)))
 	 object-class)
-    (if (member info-type '(:object :struct)))
+    (if (member info-type '(:object :struct))
 	(let ((object-class (find-build-interface info)))
 	  (if (eq info-type :object)
 	    (build-object-ptr object-class ptr)
