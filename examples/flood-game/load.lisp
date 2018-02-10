@@ -4,12 +4,20 @@
 (ql:quickload '("cffi"
                 "cffi-objects"
                 "cl-gobject-introspection"
+
+                ;; Accessible Cairo API through gobject introspection
+                ;; is quite poor
                 "cl-cairo2"))
 
 (let ((*default-pathname-defaults*
         (merge-pathnames #P"examples/flood-game/"
                          (asdf:system-source-directory "cl-gobject-introspection"))))
+
+  ;; It seems GLib timeouts is not working through gobject introspection
+  ;; so this example requires this:
   (load #P"./src/glib-timeout-add.lisp")
+  ;; ... with some low-level API from cffi and cffi-objects libraries
+
   (load #P"./src/package.lisp")
   (load #P"./src/gui.lisp")
   (load #P"./src/flood-game.lisp"))
