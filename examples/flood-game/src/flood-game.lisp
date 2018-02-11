@@ -1,13 +1,6 @@
 
 (in-package :flood-game-example)
 
-(defparameter *image*
-  (make-array '(12 12)
-              :element-type 'integer
-              :initial-element 0))
-
-(defparameter *start-point*
-  '(0 0))
 
 (defun make-image (&optional
                      (w 12)
@@ -15,6 +8,11 @@
   (make-array (list w h)
               :element-type 'integer
               :initial-element 0))
+
+(defvar *image* (make-image))
+
+(defparameter *start-point*
+  '(0 0))
 
 (defun copy-image (image)
   (destructuring-bind (w h)

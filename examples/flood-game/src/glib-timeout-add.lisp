@@ -1,4 +1,8 @@
 
+;;;
+;;; Copyright (C) 2007, Roman Klochkov <kalimehtar@mail.ru>
+;;;
+
 ;; (ql:quickload '("cffi" "cffi-objects"))
 
 (in-package :cl-user)
