@@ -55,5 +55,4 @@
 ;; delay. Take notice this feature doesn't work in case:
 ;;
 ;; (gtk-window-with-cairo-painting #'render-image-in-cairo-context)
-;;
-;; ... with render-image-in-cairo-context patching.
+
