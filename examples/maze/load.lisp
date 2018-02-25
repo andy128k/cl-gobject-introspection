@@ -27,7 +27,7 @@
 (defparameter *maze*
   (generate-maze 10 8))
 
-(edit-maze-in-window *maze*)
+(edit-maze-in-window! *maze*)
 
 
 (walk-through-maze *maze*)
