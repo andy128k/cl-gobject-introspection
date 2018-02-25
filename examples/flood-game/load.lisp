@@ -38,7 +38,21 @@
                   (3 3 2 1 0 0 0 2 2 0 1 1)
                   (1 1 2 3 3 2 2 1 0 3 1 2))))
 
-;; (gtk-window-with-cairo-painting 'render-image-in-cairo-context)
 
 (visualize-solution-in-gtk-window
  '(3 2 1 2 0 1 3 2 3 0 2 1 0 3 2))
+
+;; (gtk-window-with-cairo-painting 'render-image-in-cairo-context)
+;; or without blocking REPL with slime-eval-defun or:
+;; (bordeaux-threads:make-thread
+;;  (lambda ()
+;;    (gtk-window-with-cairo-painting 'render-image-in-cairo-context))
+;;  :name "Flood Game GUI")
+;;
+;; timeout which connected to GTK thread works and GUI is redrawing
+;; for each 0.3 sec. So you can patch *image* or
+;; render-image-in-cairo-context and see results in window with little
+;; delay. Take notice this feature doesn't work in case:
+;;
+;; (gtk-window-with-cairo-painting #'render-image-in-cairo-context)
+
