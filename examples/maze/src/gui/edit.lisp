@@ -74,7 +74,9 @@
                           ,@code)))))))
 
 (defun edit-maze-in-window! (maze)
-  (let ((*maze-geometry* nil)) 
+  ;; COMMON-LISP:DIVISION-BY-ZERO with using of some usb mouses fix
+  #+sbcl (sb-ext::set-floating-point-modes :traps nil)
+  (let ((*maze-geometry* nil))
     (with-gtk-event-loop=window+drawing-area
         (window drawing-area
          :window-title "Maze editor")
