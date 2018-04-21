@@ -685,7 +685,6 @@
    (direction :reader direction-of)
    (for-array-length-p :initform nil :accessor for-array-length-p-of)
    (array-length :reader array-length-of)
-   (ugly-offset :initform nil :accessor ugly-offset)
    (caller-allocates)
    (transfer)))
 
@@ -799,12 +798,6 @@
 	     :first (make-arg data giargs-in giargs-out values-out)
 	     :then (make-arg data inp outp voutp))
 	(collect arg)))
-
-(defun ugly-nth (data array-length args)
-  (nth (if (ugly-offset data)
-	   (1+ array-length)
-	   array-length)
-       args))
 
 (defun arg-setup-length (arg args methodp)
   (with-slots (data length-arg)
