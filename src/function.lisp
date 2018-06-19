@@ -450,6 +450,7 @@
   (let* ((ptr (cffi:mem-ref pos :pointer))
 	 (str (cffi:foreign-string-to-lisp ptr)))
     (when (free-from-foreign-p string-pointer-type)
+      #-ecl
       (cffi:foreign-string-free ptr))
     str))
 
@@ -672,6 +673,7 @@
    (direction :reader direction-of)
    (for-array-length-p :initform nil :accessor for-array-length-p-of)
    (array-length :reader array-length-of)
+   (ugly-offset :initform nil :accessor ugly-offset)
    (caller-allocates)
    (transfer)))
 
@@ -725,11 +727,13 @@
 	(push arg-data args-data)))
     (setf args-data (nreverse args-data))
     (loop
+       :for i from 0
        :for arg-data :in args-data
-       :for array-length = (array-length-of arg-data)
+       :for array-length = (array-length-of arg-data) 
        :when array-length
-       :do (setf (for-array-length-p-of
-		  (nth array-length args-data)) t))
+       :do (let ((len (+ array-length (if methodp 1 0))))
+	     (setf (for-array-length-p-of (nth len args-data)) t
+		   (ugly-offset arg-data) (< i len))))
     (loop
        :for arg-data :in args-data
        :when (and (not (eq (direction-of arg-data) :out))
@@ -782,13 +786,19 @@
 	     :then (make-arg data inp outp voutp))
 	(collect arg)))
 
+(defun ugly-nth (data array-length args)
+  (nth (if (ugly-offset data)
+	   (1+ array-length)
+	   array-length)
+       args))
+
 (defun arg-setup-length (arg args)
   (with-slots (data length-arg)
       arg
     (with-slots (array-length)
 	data
-      (setf length-arg
-	    (if array-length (nth array-length args))))))
+      (setf length-arg	    
+	    (if array-length (ugly-nth data array-length args))))))
 
 (defun in-arg-setup (arg value)
   (with-slots (data giarg length-arg (arg-value value))
@@ -798,7 +808,7 @@
       (setf arg-value value)
       (let ((real-type (if is-array-type
 			   (copy-find-set-c-array-type-length
-			    type (length value))
+			    type (slot-value length-arg 'value))
 			   type)))
 	(mem-set giarg value real-type)
 	(when length-arg
@@ -852,6 +862,7 @@
 
 (defclass return-data ()
   ((type :reader gir-type-of)
+   (ugly-offset :initform t :accessor ugly-offset)
    (array-length :reader array-length-of)))
 
 (defmethod shared-initialize :after ((return-data return-data)
@@ -878,7 +889,7 @@
     (with-slots (array-length)
 	data
       (setf length-arg
-	    (if array-length (nth array-length args))))))
+	    (if array-length (ugly-nth data array-length args))))))
 
 (defun return-value->value (ret-val)
   (with-slots (data giarg length-arg)
@@ -923,16 +934,17 @@
 					 :giarg giarg-res)))
 	     (iter (for arg :in args)
 		   (arg-setup-length arg args))
-	     (return-value-setup-length ret-val args)
 	     (multiple-value-bind (pure-in-args in-args out-args)
 		 (in/out-args args)
+	       (return-value-setup-length ret-val out-args)
 	       (mapc #'in-arg-setup in-args args-in)
 	       (unwind-protect
-		    (with-gerror g-error
-		      (g-function-info-invoke info
-					      giargs-in in-count
-					      giargs-out out-count
-					      giarg-res g-error)
+		    (progn
+		      (with-gerror g-error
+			(g-function-info-invoke info
+						giargs-in in-count
+						giargs-out out-count
+						giarg-res g-error))
 		      (make-out ret-val out-args))
 		 (mapc #'in-arg-clear pure-in-args))))))))))
 
