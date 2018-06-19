@@ -88,10 +88,10 @@
 	  (if (listp names) (cadr names)
 	      #-clisp
 	      (make-symbol (concatenate 'string "G-" (symbol-name lisp-name)))
-	       #+clisp
-	       (intern (concatenate 'string
-				    "G-"
-				    (symbol-name lisp-name)) "GIR")))
+	      #+clisp
+	      (intern (concatenate 'string
+				   "G-"
+				   (symbol-name lisp-name)) "GIR")))
 	 (real-args (if (stringp (car args)) (cdr args) args))
 	 (arg-names (mapcar #'first real-args)))
     `(progn
