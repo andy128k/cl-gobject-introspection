@@ -73,6 +73,9 @@
 (cffi:defcfun g-value-set-object :void (g-value :pointer) (val pobject))
 (cffi:defcfun g-value-set-variant :void (g-value :pointer) (val pvariant))
 
+(defun g-value-get-interface (g-value) (g-value-get-object g-value))
+(defun g-value-set-interface (g-value val) (g-value-set-object g-value val))
+
 (cffi:defcfun g-type-fundamental :ulong (id :ulong))
 
 ; #define G_TYPE_FUNDAMENTAL_SHIFT (2)
@@ -108,7 +111,7 @@
                   ,@(loop 
                        :for i :from 0
                        :for type-name :in +fundamental-g-types+
-                       :when (> i 2)
+                       :when (>= i 2)
                        :collect `(,(* i 4)
                                    (,(intern 
                                       (format nil "~:@(g-value-~a-~a~)"

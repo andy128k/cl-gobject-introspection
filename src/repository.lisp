@@ -448,6 +448,10 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 (define-collection-getter object-info-get-signals
     g-object-info-get-n-signals g-object-info-get-signal)
 
+(def-info-func object-info-find-signal
+  (object-info info-ffi)
+  (name :string))
+
 (define-collection-getter object-info-get-vfuncs
     g-object-info-get-n-vfuncs g-object-info-get-vfunc)
 

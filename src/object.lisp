@@ -151,10 +151,35 @@
     (lambda (&rest args)
       (apply method (cons this args)))))
 
+(defclass fake-object-class ()
+  ((name :initarg :name)
+   (gtype :initarg :gtype)))
+
+(defmethod print-object ((self fake-object-class) s)
+  (with-slots (name gtype) self
+    (let ((interface-p (= (g-type-fundamental gtype) 8)))
+      (format s "#~C<fake.~a>" (if interface-p #\I #\O)
+              name))))
+
+(defvar *fake-object-classes* (make-hash-table))
+
+(defun find-fake-object-class (gtype)   ; when gtype is not in g-i
+  (let ((fundamental (g-type-fundamental gtype)))
+    (when (or (= fundamental 8) (= fundamental 80))
+      (assert (/= gtype 80))
+      (or (gethash gtype *fake-object-classes*)
+          (setf (gethash gtype *fake-object-classes*)
+                (make-instance 'fake-object-class
+                  :gtype gtype
+                  :name (cffi:foreign-funcall "g_type_name"
+                                              :ulong gtype :string)))))))
+
 (defun gobject (gtype ptr)
   (let* ((info (repository-find-by-gtype nil gtype))
 	 (info-type (and info (info-get-type info)))
-	 object-class)
+         (object-class  (if (null info) (find-fake-object-class gtype))))
+    (when object-class
+      (return-from gobject (build-object-ptr object-class ptr)))
     (if (member info-type '(:object :struct))
 	(let ((object-class (find-build-interface info)))
 	  (if (eq info-type :object)
@@ -173,7 +198,9 @@
   (this-of object))
 
 (defmethod cffi:translate-from-foreign (pointer (type pobject))
-  (gobject (gtype pointer) pointer))
+  (if (cffi:null-pointer-p pointer)
+      nil
+      (gobject (gtype pointer) pointer)))
 
 (defmethod nsget-desc ((object-class object-class) name)
   (multiple-value-bind (function-info return-interface)
@@ -236,7 +263,7 @@
 
 (defun object-class-find-signal-info (object-class cname)
   (let ((object-info (info-of object-class)))
-    (or (object-info-find-method object-info cname)
+    (or (object-info-find-signal object-info cname)
 	(iter (for intf-info :in (object-info-get-interfaces object-info))
 	      (when-let ((signal-info (interface-info-find-signal intf-info cname)))
 		(return signal-info)))
