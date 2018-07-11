@@ -534,8 +534,7 @@
   (with-slots (contained-type field)
       argument-type
     (if (eql contained-type :pointer)
-        (setf (cffi:mem-ref (cffi:foreign-slot-pointer pos '(:union argument) fi
-eld) :pointer) value)
+        (setf (cffi:mem-ref (cffi:foreign-slot-pointer pos '(:union argument) field) :pointer) value)
         (mem-set (cffi:foreign-slot-pointer pos '(:union argument) field) value contained-type))))
 
 (defmethod mem-alloc (pos (argument-type argument-type))
@@ -591,8 +590,7 @@ eld) :pointer) value)
     (typecase interface-info
       (object-info (make-object-pointer-type namespace name free-from-foreign))
       (struct-info (make-struct-pointer-type namespace name))
-      (interface-info (make-object-pointer-type namespace name free-from-foreign
-))
+      (interface-info (make-object-pointer-type namespace name free-from-foreign))
       (t (make-void-pointer-type)))))
 
 (defun parse-interface-pointer-type-info (type-info transfer)
@@ -1036,8 +1034,7 @@ eld) :pointer) value)
            (c2mop:class-slots (class-of arg)))))
 
 (defmethod print-object :around (obj stream)
-  (if (member (class-of obj) (mapcar 'find-class '(arg argument-type arg-data re
-turn-data return-value c-array-type pointer-type)))
+  (if (member (class-of obj) (mapcar 'find-class '(arg argument-type arg-data return-data return-value c-array-type pointer-type)))
       (print-unreadable-object (obj stream :type t :identity t)
         (write (d obj) :stream stream))
       (call-next-method))))
