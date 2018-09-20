@@ -843,8 +843,8 @@
 		(if is-array-type
 		    (copy-find-set-c-array-type-length 
                      type
-                     (when length-arg (slot-value length-arg 'value)))
-		    type)))
+		     (length arg-value))
+		     type)))
 	  (mem-free giarg real-type))))))
 
 (defun in/out-args (args)
