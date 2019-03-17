@@ -4,10 +4,12 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (cffi:define-foreign-library gobject
+    (:darwin "libgobject-2.0.dylib")
     (:unix (:or "libgobject-2.0.so.0" "libgobject-2.0.so"))
     (:windows "libgobject-2.0-0.dll")
     (t "libgobject-2.0"))
   (cffi:define-foreign-library girepository
+    (:darwin "libgirepository-1.0.dylib")
     (:unix (:or "libgirepository-1.0.so" "libgirepository-1.0.so.1"))
     (:windows (:or "libgirepository-1.0.dll" "libgirepository-1.0.0.dll"
                    "libgirepository-1.0-1.dll"))
