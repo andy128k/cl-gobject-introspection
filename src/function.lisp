@@ -80,6 +80,7 @@
 		    :initform nil :type boolean)))
 
 (defmethod initialize-copy ((obj freeable-type) (copy freeable-type))
+  (when (next-method-p) (call-next-method))
   (copy-slots ((free-from-foreign free-to-foreign)) (obj copy)))
 
 (defgeneric mem-size (type))
