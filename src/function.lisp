@@ -94,7 +94,9 @@
 
 (defmethod alloc-foreign (type &key (initial-value nil initial-value-p))
   (let* ((size (mem-size type))
-	 (pos (cffi:foreign-alloc :uint8 :count size)))
+	 (pos (if initial-value-p
+		  (cffi:foreign-alloc :uint8 :count size)
+		  (cffi:foreign-alloc :uint8 :count size :initial-element 0))))
     (when initial-value-p
       (mem-set pos initial-value type))
     pos))
