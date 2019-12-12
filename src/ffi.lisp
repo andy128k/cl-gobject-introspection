@@ -67,9 +67,10 @@
 (defmethod shared-initialize :after ((namespace namespace) slot-names
 				     &key name version)
   (declare (ignore slot-names))
-  (repository-require nil name (if version version (cffi:null-pointer)))
-  (setf (slot-value namespace 'version)
-	(repository-get-version nil name)))
+  (when name	      ;don't handle calls from make-instances-obsolete
+    (repository-require nil name (if version version (cffi:null-pointer)))
+    (setf (slot-value namespace 'version)
+	  (repository-get-version nil name))))
 
 (defmethod nsget ((namespace namespace) name)
   (let ((cname (c-name name)))
