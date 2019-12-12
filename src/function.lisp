@@ -692,28 +692,29 @@
 
 (defmethod shared-initialize :after ((arg-data arg-data)
 				     slot-names &key arg-info)
-  (with-slots (name type is-array-type direction
-	       array-length caller-allocates)
-      arg-data
-    (case arg-info
-      (:object-argument
-       (setf name :this
-	     type (make-object/struct-pointer-type)
-	     caller-allocates nil
-	     direction :in
-	     is-array-type nil
-	     array-length nil))
-      (otherwise
-       (let ((type-info (arg-info-get-type arg-info))
-	     (transfer (arg-info-get-ownership-transfer arg-info)))
-	 (setf name (info-get-name arg-info)
-	       caller-allocates (arg-info-is-caller-allocates arg-info)
-	       type (build-argument-type type-info transfer
-					 :force-pointer caller-allocates)
-	       direction (arg-info-get-direction arg-info)
-	       is-array-type
-	       (find-object-with-class type (find-class 'c-array-type))
-	       array-length (get-array-length type-info)))))))
+  (when arg-info      ;don't handle calls from make-instances-obsolete
+    (with-slots (name type is-array-type direction
+		 array-length caller-allocates)
+	arg-data
+      (case arg-info
+	(:object-argument
+	 (setf name :this
+	       type (make-object/struct-pointer-type)
+	       caller-allocates nil
+	       direction :in
+	       is-array-type nil
+	       array-length nil))
+	(otherwise
+	 (let ((type-info (arg-info-get-type arg-info))
+	       (transfer (arg-info-get-ownership-transfer arg-info)))
+	   (setf name (info-get-name arg-info)
+		 caller-allocates (arg-info-is-caller-allocates arg-info)
+		 type (build-argument-type type-info transfer
+					   :force-pointer caller-allocates)
+		 direction (arg-info-get-direction arg-info)
+		 is-array-type
+		 (find-object-with-class type (find-class 'c-array-type))
+		 array-length (get-array-length type-info))))))))
 
 (let ((o-a-d-cache (make-instance 'arg-data
 				  :arg-info :object-argument)))
@@ -877,16 +878,17 @@
 
 (defmethod shared-initialize :after ((return-data return-data)
 				     slot-names &key callable-info return-interface)
-  (with-slots (type array-length)
-      return-data
-    (let ((type-info (callable-info-get-return-type callable-info))
-	  (transfer (callable-info-get-caller-owns callable-info)))
-      (setf type
-	    (if return-interface
-		(let ((intf-ptr-type (make-interface-pointer-type return-interface :everything)))
-		  (make-instance 'argument-type :contained-type intf-ptr-type :field 'v-pointer))
-		(build-argument-type type-info transfer))
-	    array-length (get-array-length type-info)))))
+  (when callable-info ;don't handle calls from make-instances-obsolete
+    (with-slots (type array-length)
+	return-data
+      (let ((type-info (callable-info-get-return-type callable-info))
+	    (transfer (callable-info-get-caller-owns callable-info)))
+	(setf type
+	      (if return-interface
+		  (let ((intf-ptr-type (make-interface-pointer-type return-interface :everything)))
+		    (make-instance 'argument-type :contained-type intf-ptr-type :field 'v-pointer))
+		  (build-argument-type type-info transfer))
+	      array-length (get-array-length type-info))))))
 
 (defclass return-value ()
   ((data :initarg :data)
