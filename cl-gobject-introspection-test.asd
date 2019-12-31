@@ -7,5 +7,4 @@
   :serial t
   :components ((:file "test/package")
 	       (:file "test/test1")
-	       (:file "test/test-generation")
 	       (:file "test/gir-test")))
