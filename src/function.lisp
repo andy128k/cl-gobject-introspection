@@ -850,7 +850,7 @@
 	       (if is-array-type
 		   (copy-find-set-c-array-type-length 
                       type
-                      (slot-value length-arg 'value))
+                      (when length-arg (slot-value length-arg 'value)))
 		   type)))
 	  (mem-free giarg real-type))))))
 
