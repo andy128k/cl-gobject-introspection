@@ -164,7 +164,7 @@
    #:type-desc-of
    #:callable-desc
    #:arguments-desc-of
-   #:return-desc-of
+   #:returns-desc-of
    #:object-class
    #:gir-class-of
    #:parent-of
