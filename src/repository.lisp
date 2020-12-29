@@ -22,14 +22,19 @@
     :lazy)
 
 (progn
-  (cffi:defcfun g-irepository-get-type :int32)
-  (cffi:defcfun g-object-newv :pointer
-    (g-type :int32)
-    (n-params :int))
+  (cffi:defcfun g-irepository-get-type :pointer)
+  (cffi:defcfun g-object-new-with-properties :pointer
+    (g-type :pointer)
+    (n-properties :int)
+    (names :pointer)
+    (values :pointer))
   
   (defun repository-new ()
     (make-repository :ptr
-		     (g-object-newv (g-irepository-get-type) 0))))
+		     (g-object-new-with-properties (g-irepository-get-type)
+						   0
+						   (cffi:null-pointer)
+						   (cffi:null-pointer)))))
 
 
 (cffi:defcfun (repository-get-default "g_irepository_get_default") repository-type)
