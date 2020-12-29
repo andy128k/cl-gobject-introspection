@@ -48,7 +48,7 @@
   (cffi:defcfun g-irepository-get-search-path :pointer)
   
   (defun repository-get-search-path ()
-    (g-slist-to-list (g-irepository-get-search-path))))
+    (g-slist-to-list (g-irepository-get-search-path) :free nil)))
 
 
 (progn
