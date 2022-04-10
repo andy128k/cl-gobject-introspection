@@ -129,7 +129,46 @@
 (cffi:defcfun g-object-ref :pointer (obj :pointer))
 (cffi:defcfun g-object-unref :void (obj :pointer))
 
+;; ParamSpecs need special treatement during object creation because
+;; GParamSpecs (and their kin) are not GObjects but are some strange
+;; subtypes of GTypeClass.  E.g.  G_IS_OBJECT ( g_param_spec_int(...)
+;; ) is FALSE.  However g_base_info_get_type
+;; (g_irepository_find_by_name (repository, "GObject", "ParamSpec"))
+;; == GI_INFO_TYPE_OBJECT, and so cl-gir tries to call
+;; `build-object-ptr' when it comes across it.  The problem is that
+;; since it is not an GObject, calling `g-object-is-floating' on it
+;; will fail.  The following code attempts to work around that problem
+;; by having `object-setup-gc' detect that it is dealing with a
+;; ParamSpec and choose a different code path which calls
+;; `param-spec-setup-gc'
+
+;; given the above background perhaps the atrocious name
+;; `g-object-is-param-spec' can be excused.  also the call to
+;; `g-type-fundamental' in this function makes object.lisp depend on
+;; gvalue.lisp. note (%gtype :param) == 76
+
+(defun g-object-is-param-spec (object)
+  (= (g-type-fundamental (gtype (this-of object))) 76))
+
+(cffi:defcfun g-param-spec-ref :pointer (pspec :pointer))
+(cffi:defcfun g-param-spec-ref-sink :pointer (pspec :pointer))
+(cffi:defcfun g-param-spec-sink :void (pspec :pointer))
+(cffi:defcfun g-param-spec-unref :void (pspec :pointer))
+
+(defun param-spec-setup-gc (object transfer)
+  (let* ((this (this-of object))
+         (a (cffi:pointer-address this)))
+    (if (eq transfer :everything) ; a new ParamSpec is always floating
+	(g-param-spec-ref-sink this)
+	(g-param-spec-ref this))
+    (tg:finalize this (lambda () (g-param-spec-unref (cffi:make-pointer a)))))
+  object)
+
+
 (defun object-setup-gc (object transfer)
+  (if (g-object-is-param-spec object)
+      (return-from object-setup-gc
+	(param-spec-setup-gc object transfer)))
   (let* ((this (this-of object))
 	 (floating? (g-object-is-floating this))
          (a (cffi:pointer-address this)))
