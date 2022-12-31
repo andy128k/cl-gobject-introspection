@@ -1,13 +1,13 @@
-GObject Introspection
+# cl-gobject-introspection
 
-# 1. Main interface
+Common Lisp bindings to [gobject-introspection](https://gitlab.gnome.org/GNOME/gobject-introspection).
 
-This is Gobject FFI.
+## Motivational examples
 
-Usage example:
+### GTK+ 3
 
-```racket
-(defvar *gtk* (gir:require-namespace "Gtk"))
+```lisp
+(defvar *gtk* (gir:require-namespace "Gtk" "3.0"))
 (gir:invoke (*gtk* 'init) nil)
 (let ((window (gir:invoke (*gtk* "Window" 'new)
                           (gir:nget *gtk* "WindowType" :toplevel))))
@@ -15,18 +15,42 @@ Usage example:
   (gir:invoke (*gtk* 'main)))
 ```
 
-Interface with the GObjectIntrospection is based on repositories. Main
-function is
+### Gtk 4
 
-```racket
-(gir:require-namespace repository-name [version]) -> repository
-  repository-name : string
-  version : string = nil
+```lisp
+(defvar *gio* (gir:require-namespace "Gio"))
+(defvar *gtk* (gir:require-namespace "Gtk" "4.0"))
+
+(let ((app (gir:invoke (*gtk* "Application" 'new)
+		       "org.gtk.example"
+		       (gir:nget *gio* "ApplicationFlags" :default-flags))))
+  (gir:connect app "activate"
+	       (lambda (app)
+		 (let ((window (gir:invoke (*gtk* "ApplicationWindow" 'new) app)))
+		   (gir:invoke (window 'show)))))
+  (gir:invoke (app 'run) nil))
+```
+
+## 1. Main interface
+
+Interface with the GObjectIntrospection is based on repositories. Main
+function which creates an instance of a repository is
+
+```lisp
+(gir:require-namespace repository-name [version])
+```
+
+Examples:
+
+```lisp
+(gir:require-namespace "GLib")
+
+(gir:require-namespace "Gtk" "4.0")
 ```
 
 Returns interface to repository with name `repository-name`.
 
-# 2. Using interface objects
+## 2. Using interface objects
 
 In gobject object system, repository, class, enumeration are all kind
 of namespace.  To get a function/const/enum/class from the repository
@@ -35,31 +59,31 @@ namespace access too.  So that concept is introduced into
 cl-gobject-introspection too.  A function named nget (namespace get)
 is use to do namespace accessing as follow,
 
-```racket
-(gir:nget *gtk* "WindowType" :toplevel) -> get enum value
-(gir:nget *gtk* "Window" 'new) -> get a class constructor function
-(gir:nget *window* 'add) -> get a method
+```lisp
+(gir:nget *gtk* "WindowType" :toplevel) ; get enum value
+(gir:nget *gtk* "Window" 'new)          ; get a class constructor function
+(gir:nget *window* 'add)                ; get a method
 ```
 
 To call a method of object, we need to get the method from function,
 then call it.
 
-```racket
+```lisp
 (funcall (gir:nget *gtk* "Window" 'new) 0)
 ```
 
-To save some typing, a macro named invoke is introduced as follow,
+To save some typing, a macro named `invoke` is introduced as follow,
 
-```racket
+```lisp
 (gir:invoke (*gtk* "Window" 'new) 0)
 ```
 
-In this way, (\*gtk\* "Window" 'new) can be seen as function and "0" can
+In this way, `(*gtk* "Window" 'new)` can be seen as function and `0` can
 be seen as parameters.
 
-# 3. Get FFI element
+## 3. Get FFI element
 
-```racket
+```lisp
 (gir:invoke (repository func-name) func-arg ...) -> any
   repositry : repository
   func-name : (or string symbol)
@@ -77,17 +101,17 @@ be seen as parameters.
   constructor-name : (or string symbol)
 ```
 
-The nget takes all arguments except the first one as names of foreign
-objects. Name could be `string` or `symbol`. In both cases it’s
-allowed to replace "\_" with "-". So you can write either "get\_name"
-or ’get-name with the same result. If you use symbol its name is
+The `nget` takes all arguments except the first one as names of foreign
+objects. Name could be a `string` or a `symbol`. In both cases it is
+allowed to replace `_` with `-`. So you can write either `"get_name"`
+or `’get-name` with the same result. If you use symbol its name is
 downcased.
 
 If second argument of nget is a name of function, nget will get the
 function object.  And we can use invoke macro for more concise syntax.
 
-```racket
-(defvar *gtk* (gir:require-namespace "Gtk"))
+```lisp
+(defvar *gtk* (gir:require-namespace "Gtk" "3.0"))
 (gir:invoke (*gtk* 'init) nil)
 ```
 
@@ -96,7 +120,7 @@ gtk\_init is called with an empty array.
 If second argument of nget is a name of constant, then it returns
 value of the constant. For example,
 
-```racket
+```lisp
 (gir:nget *gtk* "MAJOR-VERSION")
 ```
 
@@ -109,7 +133,7 @@ want get a method with that name.
 
 For example,
 
-```racket
+```lisp
 (gir:nget *gtk* "WindowType" :toplevel)
 ```
 
@@ -121,15 +145,15 @@ usually "new"), and we can use invoke here too. In GTK classes have
 names beginning with capital char, so you have to use either string
 or symbol like ’|Window|.
 
-```racket
+```lisp
 (defvar *window* (gir:invoke (*gtk* "Window" 'new) 0))
 ```
 
 This call will return a representation of object.
 
-# 4. Foreign objects
+## 4. Foreign objects
 
-```racket
+```lisp
 (gir:invoke (object method-name) method-arg ...) -> any
   object : gir-object
   method-name : (or string symbol)
@@ -140,33 +164,33 @@ To get the method of an object, the second argument of nget should be
 either name of method (`string` or `symbol`) or keyword with special
 meaning.  Invoke can be used for the more concise syntax.
 
-```racket
+```lisp
 (gir:invoke (*window* 'add) button)
 ```
 
 will call method "add" with argument in variable "button".
 
-## 4.1. Pointer to object
+### 4.1. Pointer to object
 
-To get C pointer to an object, use this-of.
+To get C pointer to an object, use `this-of`.
 
-```racket
+```lisp
 (gir::this-of *window*)
 ```
 
 It is possible to make an object from a pointer:
 
-```racket
+```lisp
 (defvar *window-from-ptr* (gir:build-object-ptr (gir:nget *gtk* "Window") window-ptr))
 ```
 
 `window-ptr` should be `cffi:foreign-pointer` here.
 
-## 4.2. Fields
+### 4.2. Fields
 
 Getting and setting field values are done with field and setf.
 
-```racket
+```lisp
 (defvar *entry* (gir:invoke (*gtk* "TargetEntry" 'new) "ok" 0 0))
                                                          
 > (gir:field *entry* 'flags)
@@ -179,18 +203,18 @@ Getting and setting field values are done with field and setf.
 But you cannot set with :set-field! complex types such as structs,
 unions or even strings. It is a restriction of GObjectIntrospection.
 
-## 4.3. Properties
+### 4.3. Properties
 
 Getting and setting property are done with property and setf.
 
-```racket
+```lisp
 (gir:property *window* 'width-request)
 (setf (gir:property *window* 'width-request) 100)
 ```
 
-# 5. Signals
+## 5. Signals
 
-```racket
+```lisp
 (gir:connect object signal-name handler) -> void?
   object : gir-object
   signal-name : (or symbol string)
@@ -200,12 +224,12 @@ Getting and setting property are done with property and setf.
 Connects signal handler to object. If handler is a string o symbol, then
 it denotes C-function.
 
-# 6. Description
+## 6. Description
 
-Various description information, such as signature of function, can be
+Various description information, such as a signature of a function, can be
 gotten via the description functions.
 
-```racket
+```lisp
 (gir:nget-desc *gtk* 'init)
 #F<init(#V<argv: (SEQUENCE STRING)>): (#V<RETURN-VALUE: VOID>
                                        #V<argv: (SEQUENCE STRING)>)>
