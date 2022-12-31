@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
     - name: Install dependencies
       run: sudo apt install -y sbcl libgirepository1.0-dev libgtk-3-dev xvfb
     - name: Install Quicklisp
@@ -30,9 +30,31 @@ jobs:
     - name: Run tests
       run: |
         sbcl \
+          --eval '(require :sb-cover)' \
+          --eval '(declaim (optimize sb-cover:store-coverage-data))' \
           --eval '(ql:quickload :fiveam)' \
           --eval '(ql:quickload :cl-gobject-introspection)' \
-          --eval '(setf fiveam:*debug-on-error* t fiveam:*debug-on-failure* t)' \
+          --eval '(setf fiveam:*on-error* :backtrace fiveam:*on-failure* :backtrace)' \
           --eval '(setf *debugger-hook* (lambda (c h) (declare (ignore h)) (princ c) (uiop:quit -1)))' \
           --eval '(asdf:test-system :cl-gobject-introspection)' \
+          --eval '(sb-cover:report "coverage/" :if-matches (lambda (f) (eq 0 (search (namestring (asdf:system-relative-pathname :cl-gobject-introspection "src/")) f))))' \
           --quit
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: coverage
+        path: coverage
+        retention-days: 14
+
+    - uses: actions/github-script@v6
+      with:
+        script: |
+          const { owner, repo, number } = context.issue;
+          if (number) {
+            github.rest.issues.createComment({
+              issue_number: number,
+              owner,
+              repo,
+              body: `[Coverage report](https://github.com/${owner}/${repo}/actions/runs/${context.runId})`
+            })
+          }
