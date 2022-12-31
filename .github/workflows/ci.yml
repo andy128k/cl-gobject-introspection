@@ -49,12 +49,4 @@ jobs:
     - uses: actions/github-script@v6
       with:
         script: |
-          const { owner, repo, number } = context.issue;
-          if (number) {
-            github.rest.issues.createComment({
-              issue_number: number,
-              owner,
-              repo,
-              body: `[Coverage report](https://github.com/${owner}/${repo}/actions/runs/${context.runId})`
-            })
-          }
+          await require('./.github/coverage-report.js')({github, context, coveragePath: "./coverage"});
