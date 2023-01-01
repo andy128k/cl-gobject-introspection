@@ -6,9 +6,9 @@
 (in-package #:gir.field)
 
 (cffi:defcfun g-field-info-get-field 
-    :boolean (field gir::info-ffi) (obj :pointer) (value :pointer))
+  :boolean (field gir::info-ffi) (obj :pointer) (value :pointer))
 (cffi:defcfun g-field-info-set-field 
-    :boolean (field gir::info-ffi) (obj :pointer) (value :pointer))
+  :boolean (field gir::info-ffi) (obj :pointer) (value :pointer))
 
 (defun get (ptr field)
   (cffi:with-foreign-object (giarg '(:union gir:argument))

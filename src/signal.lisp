@@ -17,7 +17,7 @@
 
 ;; Define the closure struct to compute its size
 (cffi:defcstruct g-closure
-  (flags :unsigned-int)
+    (flags :unsigned-int)
   (marshal :pointer)
   (data :pointer)
   (notifiers :pointer))
@@ -33,7 +33,7 @@
   (declare (ignore hint data))
   (let ((lisp-func (gethash (cffi:pointer-address closure) *objects*))
         (lisp-params 
-         (loop
+          (loop
             :for i :below n-values
             :collect 
             (let* ((gvalue (cffi:mem-aptr
@@ -87,17 +87,17 @@
                       (t (c-func c-handler))))
          (flags (+ (if after 1 0) (if swapped 2 0)))
          (handler-id
-          (typecase c-handler
-            (function (g-signal-connect-closure 
-                       object-ptr str-signal
-                       (make-closure c-handler)
-                       after))
-            (t (g-signal-connect-data object-ptr
-                                      str-signal 
-                                      c-handler
-                                      (cffi:null-pointer)
-                                      (cffi:null-pointer) 
-                                      flags)))))
+           (typecase c-handler
+             (function (g-signal-connect-closure 
+			object-ptr str-signal
+			(make-closure c-handler)
+			after))
+             (t (g-signal-connect-data object-ptr
+                                       str-signal 
+                                       c-handler
+                                       (cffi:null-pointer)
+                                       (cffi:null-pointer) 
+                                       flags)))))
     handler-id))
 
 (cffi:defcfun g-signal-handler-disconnect :void (instance :pointer) (id :ulong))

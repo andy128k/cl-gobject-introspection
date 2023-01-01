@@ -33,15 +33,15 @@
     (iter (for slot-spec :in copy-slots)
 	  (etypecase slot-spec
 	    (symbol (push (list slot-spec slot-spec) src-copy-slots)
-		    (push (list (gensym) slot-spec) dst-copy-slots))
+	     (push (list (gensym) slot-spec) dst-copy-slots))
 	    (list (ecase (length slot-spec)
 		    (2 (push (list (first slot-spec) (second slot-spec))
 			     src-copy-slots)
-		       (push (list (gensym) (second slot-spec))
-			     dst-copy-slots))
+		     (push (list (gensym) (second slot-spec))
+			   dst-copy-slots))
 		    (3 (push (list (first slot-spec) (third slot-spec))
 			     src-copy-slots)
-		       (push (cdr slot-spec) dst-copy-slots))))))
+		     (push (cdr slot-spec) dst-copy-slots))))))
     `(with-slots ,(append src-copy-slots src-slots)
 	 ,src
        (with-slots ,(append dst-copy-slots dst-slots)
@@ -156,8 +156,8 @@
 (defmethod initialize-copy ((obj pointer-type) (copy pointer-type))
   (call-next-method)
   (copy-slots (nil (pointed-type) ((copy-pointed-type pointed-type))) (obj copy)
-    (when pointed-type
-      (setf copy-pointed-type (copy-instance pointed-type)))))
+	      (when pointed-type
+		(setf copy-pointed-type (copy-instance pointed-type)))))
 
 (defmethod find-object-with-class ((obj pointer-type) class)
   (if (eq (class-of obj) class)
@@ -206,12 +206,12 @@
     (let ((length (c-array-length c-array-type))
 	  (param-size (mem-size param-type)))
       (loop
-	 :for pos = array :then (cffi:inc-pointer pos param-size)
-	 :for i :below (if zero-terminated? (1- length) length)
-	 :for element :in value
-	 :do (mem-set pos element param-type)
-	 :finally (if zero-terminated?
-		      (zero-memory pos param-size))))))
+	:for pos = array :then (cffi:inc-pointer pos param-size)
+	:for i :below (if zero-terminated? (1- length) length)
+	:for element :in value
+	:do (mem-set pos element param-type)
+	:finally (if zero-terminated?
+		     (zero-memory pos param-size))))))
 
 (defun map-c-array (func array c-array-type)
   (with-slots (param-type fixed-size zero-terminated?)
@@ -219,12 +219,12 @@
     (let ((param-size (mem-size param-type))
 	  (length (c-array-length c-array-type)))
       (loop
-	 :for i :upfrom 0
-	 :for pos = array :then (cffi:inc-pointer pos param-size)
-	 :until (and (or (not zero-terminated?) length)
-		     (>= i length))
-	 :until (and zero-terminated? (zero? pos param-size))
-	 :collect (funcall func pos)))))
+	:for i :upfrom 0
+	:for pos = array :then (cffi:inc-pointer pos param-size)
+	:until (and (or (not zero-terminated?) length)
+		    (>= i length))
+	:until (and zero-terminated? (zero? pos param-size))
+	:collect (funcall func pos)))))
 
 (defmethod mem-free (array (c-array-type c-array-type))
   (let ((param-type (param-type-of c-array-type)))
@@ -236,9 +236,9 @@
 
 (defmethod initialize-copy ((obj c-array-type) (copy c-array-type))
   (copy-slots
-      ((fixed-size zero-terminated? length) (param-type) ((copy-param-type param-type)))
-      (obj copy)
-    (setf copy-param-type (copy-instance param-type))))
+   ((fixed-size zero-terminated? length) (param-type) ((copy-param-type param-type)))
+   (obj copy)
+   (setf copy-param-type (copy-instance param-type))))
 
 (defmethod find-object-with-class ((obj c-array-type) class)
   (if (eq (class-of obj) class)
@@ -250,9 +250,9 @@
       type
     (let ((len (or length fixed-size))
 	  (param-desc (desc-of-type param-type)))
-     (if len
-       `(sequence ,param-desc ,len)
-       `(sequence ,param-desc)))))
+      (if len
+	  `(sequence ,param-desc ,len)
+	  `(sequence ,param-desc)))))
 
 (defclass object/struct-pointer-type (pointer-type)
   ())
@@ -306,12 +306,12 @@
   (with-accessors ((free-from-foreign free-from-foreign-p) (gir-class gir-class-of))
       object-pointer-type
     (let ((ptr (cffi:mem-ref pos :pointer)))
-     (if (cffi:null-pointer-p ptr)
-	 nil
-	 (if-let ((obj (build-object-ptr gir-class ptr)))
-	   (if free-from-foreign
-	       (object-setup-gc obj :everything)
-	       obj))))))
+      (if (cffi:null-pointer-p ptr)
+	  nil
+	  (if-let ((obj (build-object-ptr gir-class ptr)))
+		  (if free-from-foreign
+		      (object-setup-gc obj :everything)
+		      obj))))))
 
 (defmethod initialize-copy ((obj object-pointer-type) (copy object-pointer-type))
   (call-next-method))
@@ -323,7 +323,7 @@
   (defun make-object-pointer-type (namespace name free-from-foreign)
     (ensure-gethash (list namespace name free-from-foreign) object-pointer-type-cache
 		    (make-instance 'object-pointer-type :namespace namespace :name name
-				   :free-from-foreign free-from-foreign))))
+							:free-from-foreign free-from-foreign))))
 
 (defclass struct-pointer-type (pointer-type interface-type)
   ())
@@ -346,9 +346,9 @@
   (with-accessors ((gir-class gir-class-of))
       struct-pointer-type
     (let ((ptr (cffi:mem-ref pos :pointer)))
-     (if (cffi:null-pointer-p ptr)
-	 nil
-	 (build-struct-ptr gir-class ptr)))))
+      (if (cffi:null-pointer-p ptr)
+	  nil
+	  (build-struct-ptr gir-class ptr)))))
 
 (defmethod mem-free (pos (type struct-pointer-type))
   (declare (ignore pos type)))
@@ -556,8 +556,8 @@
 
 (defmethod initialize-copy ((obj argument-type) (copy argument-type))
   (copy-slots ((field) (contained-type) ((copy-contained-type contained-type))) (obj copy)
-    (when contained-type
-      (setf copy-contained-type (copy-instance contained-type)))))
+	      (when contained-type
+		(setf copy-contained-type (copy-instance contained-type)))))
 
 (defmethod desc-of-type ((argument-type argument-type))
   (desc-of-type (contained-type-of argument-type)))
@@ -578,9 +578,9 @@
 	     (fixed-size (let ((size (type-info-get-array-fixed-size type-info)))
 			   (if (/= -1 size) size)))
 	     (array-type (make-instance 'c-array-type :param-type param-type :fixed-size fixed-size
-					:zero-terminated? zero-terminated?)))
+						      :zero-terminated? zero-terminated?)))
 	(make-instance 'pointer-type :pointed-type array-type
-		       :free-from-foreign (not (eq transfer :nothing))))
+				     :free-from-foreign (not (eq transfer :nothing))))
       (make-void-pointer-type)))
 
 (defun make-interface-pointer-type (interface-info transfer)
@@ -726,8 +726,8 @@
   ;; if construct + in-arg
   (let* ((n-args (g-callable-info-get-n-args info))
 	 (args-data
-	  (when methodp
-	    (list (object-arg-data))))
+	   (when methodp
+	     (list (object-arg-data))))
 	 (in-count (length args-data))
 	 (out-count 0)
 	 (in-array-length-count 0))
@@ -742,17 +742,17 @@
 	(push arg-data args-data)))
     (setf args-data (nreverse args-data))
     (loop
-       :for arg-data :in args-data
-       :for array-length = (array-length-of arg-data) 
-       :when array-length
-       :do (setf (for-array-length-p-of 
+      :for arg-data :in args-data
+      :for array-length = (array-length-of arg-data) 
+      :when array-length
+	:do (setf (for-array-length-p-of 
                    (elt+ args-data array-length methodp))
-                 t))
+                  t))
     (loop
-       :for arg-data :in args-data
-       :when (and (not (eq (direction-of arg-data) :out))
-		  (for-array-length-p-of arg-data))
-       :do (incf in-array-length-count))
+      :for arg-data :in args-data
+      :when (and (not (eq (direction-of arg-data) :out))
+		 (for-array-length-p-of arg-data))
+	:do (incf in-array-length-count))
     (values args-data in-count out-count in-array-length-count)))
 
 (defclass arg ()
@@ -834,10 +834,10 @@
     (with-slots (type)
 	data
       (let ((real-type
-	     (if length-arg
-		 (copy-find-set-c-array-type-length type
-						    (out-arg->value length-arg))
-		 type)))
+	      (if length-arg
+		  (copy-find-set-c-array-type-length type
+						     (out-arg->value length-arg))
+		  type)))
 	(mem-get giarg real-type)))))
 
 (defun in-arg-clear (arg)
@@ -847,11 +847,11 @@
 	data
       (when (eq direction :in)
 	(let ((real-type
-	       (if is-array-type
-		   (copy-find-set-c-array-type-length 
-                      type
-                      (when length-arg (slot-value length-arg 'value)))
-		   type)))
+		(if is-array-type
+		    (copy-find-set-c-array-type-length 
+                     type
+                     (when length-arg (slot-value length-arg 'value)))
+		    type)))
 	  (mem-free giarg real-type))))))
 
 (defun in/out-args (args)
@@ -912,10 +912,10 @@
     (with-slots (type)
 	data
       (let ((real-type
-	     (if length-arg
-		 (copy-find-set-c-array-type-length type
-						    (out-arg->value length-arg))
-		 type)))
+	      (if length-arg
+		  (copy-find-set-c-array-type-length type
+						     (out-arg->value length-arg))
+		  type)))
 	(mem-get giarg real-type)))))
 
 (defun make-out (ret-val out-args)
@@ -930,12 +930,12 @@
   (ret :pointer) (g-error :pointer))
 
 (defun build-function (info &key return-interface &aux
-                       (methodp (method? (function-info-get-flags info))))
+						    (methodp (method? (function-info-get-flags info))))
   (multiple-value-bind (args-data in-count out-count in-array-length-count)
       (make-args-data info methodp)
     (let* ((name (info-get-name info))
 	   (ret-data (make-instance 'return-data :callable-info info
-				    :return-interface return-interface)))
+						 :return-interface return-interface)))
       (lambda (&rest args-in)
 	(check-args args-in (- in-count in-array-length-count) name)
 	(values-list
@@ -947,7 +947,7 @@
 	   (let ((args (make-args args-data
 				  giargs-in giargs-out values-out))
 		 (ret-val (make-instance 'return-value :data ret-data
-					 :giarg giarg-res)))
+						       :giarg giarg-res)))
 	     (iter (for arg :in args)
 		   (arg-setup-length arg args methodp))
 	     (return-value-setup-length ret-val args methodp)
@@ -981,23 +981,23 @@
 	(make-args-data info)
       (declare (ignore in-count out-count in-array-length-count))
       (let ((ret-data (make-instance 'return-data :callable-info info
-				     :return-interface return-interface))
+						  :return-interface return-interface))
 	    (in-args-desc nil)
 	    (out-args-desc nil))
 	(push (make-instance 'variable-desc :name :return-value
-			     :type-desc (desc-of-type (gir-type-of ret-data)))
+					    :type-desc (desc-of-type (gir-type-of ret-data)))
 	      out-args-desc)
 	(iter (for arg-data :in args-data)
 	      (with-slots (name type direction for-array-length-p)
 		  arg-data
 		(unless for-array-length-p
 		  (let ((arg-desc (make-instance 'variable-desc :name name
-						 :type-desc (desc-of-type type))))
-		   (ecase direction
-		     (:in (push arg-desc in-args-desc))
-		     (:out (push arg-desc out-args-desc))
-		     (:in-out (push arg-desc in-args-desc)
-			      (push arg-desc out-args-desc)))))))
+								:type-desc (desc-of-type type))))
+		    (ecase direction
+		      (:in (push arg-desc in-args-desc))
+		      (:out (push arg-desc out-args-desc))
+		      (:in-out (push arg-desc in-args-desc)
+		       (push arg-desc out-args-desc)))))))
 	(setf arguments-desc (nreverse in-args-desc)
 	      returns-desc (nreverse out-args-desc))))))
 
@@ -1009,7 +1009,7 @@
 
 (defun build-callable-desc (callable-info &key return-interface)
   (make-instance 'callable-desc :callable-info callable-info
-		 :return-interface return-interface))
+				:return-interface return-interface))
 
 (defmethod build-interface-desc ((call-info callable-info))
   (make-instance 'callable-desc :callable-info call-info))
@@ -1023,19 +1023,19 @@
 
 #+closure-mop
 (progn
-(defun d (arg)
-  (mapcar (lambda (slot-name)
-            (cons slot-name
-                  (if (slot-boundp arg slot-name)
-                      (slot-value arg slot-name)
-                      'unbound)))
-          (mapcar
-           #'c2mop:slot-definition-name
-           (c2mop:class-slots (class-of arg)))))
+  (defun d (arg)
+    (mapcar (lambda (slot-name)
+              (cons slot-name
+                    (if (slot-boundp arg slot-name)
+			(slot-value arg slot-name)
+			'unbound)))
+            (mapcar
+             #'c2mop:slot-definition-name
+             (c2mop:class-slots (class-of arg)))))
 
-(defmethod print-object :around (obj stream)
-  (if (member (class-of obj) (mapcar 'find-class '(arg argument-type arg-data return-data return-value c-array-type pointer-type)))
-      (print-unreadable-object (obj stream :type t :identity t)
-        (write (d obj) :stream stream))
-      (call-next-method))))
+  (defmethod print-object :around (obj stream)
+    (if (member (class-of obj) (mapcar 'find-class '(arg argument-type arg-data return-data return-value c-array-type pointer-type)))
+	(print-unreadable-object (obj stream :type t :identity t)
+          (write (d obj) :stream stream))
+	(call-next-method))))
 

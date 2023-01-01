@@ -5,11 +5,11 @@
     `(let ((,vkey ,key)
 	   (,vhash-table ,hash-table))
        (if-let ((,value (gethash ,vkey ,vhash-table)))
-	 (values ,value t)
-	 (values (if-let ((,nvalue ,default))
-		   (setf (gethash ,vkey ,vhash-table) ,nvalue)
-		   (progn ,on-nil nil))
-		 nil)))))
+	       (values ,value t)
+	       (values (if-let ((,nvalue ,default))
+			       (setf (gethash ,vkey ,vhash-table) ,nvalue)
+			       (progn ,on-nil nil))
+		       nil)))))
 
 (defgeneric nsget (namespace name))
 (defgeneric build-interface (info))
@@ -72,11 +72,11 @@
 	(repository-get-version nil name)))
 
 (defmethod nsget ((namespace namespace) name)
-   (let ((cname (c-name name)))
-     (ensure-gethash-unless-null cname (cache-of namespace)
-				 (if-let ((info (repository-find-by-name nil (name-of namespace) cname)))
-				   (build-interface info))
-				 (warn "No such FFI name ~a" name))))
+  (let ((cname (c-name name)))
+    (ensure-gethash-unless-null cname (cache-of namespace)
+				(if-let ((info (repository-find-by-name nil (name-of namespace) cname)))
+					(build-interface info))
+				(warn "No such FFI name ~a" name))))
 
 (defmethod nsget-desc ((namespace namespace) name)
   (build-interface-desc (repository-find-by-name nil (name-of namespace)
@@ -98,7 +98,7 @@
 
 (defun find-build-interface-for-name (nsname name)
   (let ((namespace (require-namespace nsname)))
-      (nsget namespace name)))
+    (nsget namespace name)))
 
 (defun find-build-interface (info)
   (let* ((nsname (info-get-namespace info))
@@ -120,4 +120,4 @@
 
 (defun build-variable-desc (name type-info)
   (make-instance 'variable-desc :name name
-		 :type-desc (build-type-desc type-info)))
+				:type-desc (build-type-desc type-info)))

@@ -1,9 +1,7 @@
-;; -*- mode: Common-Lisp -*-
-
 (in-package :gir)
 
 (cffi:defcunion argument
-    ""
+  ""
   (v-boolean :boolean)
   (v-int8 :int8)
   (v-uint8 :uint8)
@@ -67,7 +65,7 @@
 ;     (error "TODO"))))
 
 (cffi:defcenum info-type
-    "Types of objects registered in the repository"
+  "Types of objects registered in the repository"
   (:invalid 0)
   :function
   :callback

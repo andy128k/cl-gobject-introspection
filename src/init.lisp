@@ -1,15 +1,13 @@
-;; -*- mode: Common-Lisp -*-
-
 (in-package :gir)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (cffi:define-foreign-library gobject
-    (:darwin "libgobject-2.0.dylib")
+      (:darwin "libgobject-2.0.dylib")
     (:unix (:or "libgobject-2.0.so.0" "libgobject-2.0.so"))
     (:windows "libgobject-2.0-0.dll")
     (t "libgobject-2.0"))
   (cffi:define-foreign-library girepository
-    (:darwin "libgirepository-1.0.dylib")
+      (:darwin "libgirepository-1.0.dylib")
     (:unix (:or "libgirepository-1.0.so" "libgirepository-1.0.so.1"))
     (:windows (:or "libgirepository-1.0.dll" "libgirepository-1.0.0.dll"
                    "libgirepository-1.0-1.dll"))
@@ -59,7 +57,7 @@
 ;;
 
 (cffi:defcstruct g-slist
-  (data :pointer)
+    (data :pointer)
   (next :pointer))
 (cffi:defctype g-slist (:struct g-slist))
 
@@ -86,7 +84,7 @@
 ;;
 
 (cffi:defcstruct g-error
-    "The GError structure contains information about an error that has occurred."
+  "The GError structure contains information about an error that has occurred."
   (domain :uint32)
   (code :int)
   (message :string))
@@ -115,7 +113,7 @@
 
 
 (cffi:defbitfield connect-flags
-  (:none 0)
+    (:none 0)
   :after
   :swapped)
 

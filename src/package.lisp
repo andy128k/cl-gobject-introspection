@@ -1,5 +1,3 @@
-;; -*- mode: Common-Lisp -*-
-
 (in-package :common-lisp-user)
 
 (defpackage #:gir

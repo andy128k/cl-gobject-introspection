@@ -1,5 +1,3 @@
-;; -*- mode: Common-Lisp -*-
-
 (in-package :gir)
 
 (defstruct typelib

@@ -2,7 +2,7 @@
 
 (defstruct
     (struct
-      (:constructor make-struct (class this)))
+     (:constructor make-struct (class this)))
   class
   this)
 

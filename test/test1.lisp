@@ -1,5 +1,3 @@
-;; -*- mode: Common-Lisp -*-
-
 (in-package :gir-test)
 
 (defun load-typelib (file-name)
