@@ -1,7 +1,7 @@
 (in-package :gir)
 
 (cffi:defcunion g-value-data
-  (v-int :int)
+    (v-int :int)
   (v-uint :uint)
   (v-long :long)
   (v-ulong :ulong)
@@ -26,9 +26,9 @@
   (this-of object))
 
 (defmethod cffi:translate-from-foreign (pointer (type pvariant))
-;; #define G_TYPE_FUNDAMENTAL_SHIFT (2)
-;; #define G_TYPE_MAKE_FUNDAMENTAL(x) ((GType) ((x) << G_TYPE_FUNDAMENTAL_SHIFT))
-;; #define G_TYPE_VARIANT G_TYPE_MAKE_FUNDAMENTAL (21)
+  ;; #define G_TYPE_FUNDAMENTAL_SHIFT (2)
+  ;; #define G_TYPE_MAKE_FUNDAMENTAL(x) ((GType) ((x) << G_TYPE_FUNDAMENTAL_SHIFT))
+  ;; #define G_TYPE_VARIANT G_TYPE_MAKE_FUNDAMENTAL (21)
   (gobject (ash 21 2) pointer))
 
 (cffi:defcfun g-value-init :void (value :pointer) (gtype :ulong))
@@ -78,8 +78,8 @@
 
 (cffi:defcfun g-type-fundamental :ulong (id :ulong))
 
-; #define G_TYPE_FUNDAMENTAL_SHIFT (2)
-; #define G_TYPE_MAKE_FUNDAMENTAL(x) ((GType) ((x) << G_TYPE_FUNDAMENTAL_SHIFT))
+;; #define G_TYPE_FUNDAMENTAL_SHIFT (2)
+;; #define G_TYPE_MAKE_FUNDAMENTAL(x) ((GType) ((x) << G_TYPE_FUNDAMENTAL_SHIFT))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter +fundamental-g-types+
@@ -94,10 +94,10 @@
   value)
 
 (macrolet ((build-case (ptr gtype prefix &optional value)
-             ; (case (g-type-fundamental gtype)
-             ;    ...
-             ;    (12 (g-value-set-char ptr value))
-             ;    ...
+             ;; (case (g-type-fundamental gtype)
+             ;;    ...
+             ;;    (12 (g-value-set-char ptr value))
+             ;;    ...
              (flet ((process (type-name value)
                       (case type-name
                         (:float `(coerce ,value 'single-float))
@@ -109,17 +109,17 @@
                         (t value))))
                `(case (g-type-fundamental gtype)
                   ,@(loop 
-                       :for i :from 0
-                       :for type-name :in +fundamental-g-types+
-                       :when (>= i 2)
-                       :collect `(,(* i 4)
+                      :for i :from 0
+                      :for type-name :in +fundamental-g-types+
+                      :when (>= i 2)
+                        :collect `(,(* i 4)
                                    (,(intern 
                                       (format nil "~:@(g-value-~a-~a~)"
                                               prefix type-name))
-                                     ,ptr ,@(when value 
-                                                 (list 
-                                                  (process type-name 
-                                                           value))))))))))
+                                    ,ptr ,@(when value 
+                                             (list 
+                                              (process type-name 
+                                                       value))))))))))
   (defun set-value! (ptr gtype value)
     (build-case ptr gtype :set value))
   (defun gvalue->lisp/free (ptr gtype &key no-free)
@@ -130,7 +130,7 @@
 
 (defun gvalue-gtype (gvalue)
   (cffi:foreign-slot-value gvalue '(:struct g-value-struct) 'g-type))
-  
+
 
 (defun make-gvalue (gtype &optional (value nil value-p))
   (let* ((ptr (cffi:foreign-alloc '(:struct g-value-struct))))
@@ -139,4 +139,4 @@
     (when value-p
       (set-value! ptr gtype value))
     ptr))
-  
+

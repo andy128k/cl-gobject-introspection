@@ -19,7 +19,7 @@
   (make-repository :ptr pointer))
 
 (cffi:defbitfield load-flags
-    :lazy)
+  :lazy)
 
 (progn
   (cffi:defcfun g-irepository-get-type :pointer)
@@ -70,7 +70,7 @@
 
 
 (def-info-func (repository-find-by-name g-irepository-find-by-name)
-  (repository repository-type)
+    (repository repository-type)
   (namespace :string)
   (name :string))
 
@@ -97,7 +97,7 @@
 
 
 (def-info-func (repository-find-by-gtype g-irepository-find-by-gtype)
-  (repository repository-type)
+    (repository repository-type)
   (g-type :ulong))
 
 (progn
@@ -137,11 +137,11 @@
 
 #|
 void gi_cclosure_marshal_generic (GClosure       *closure,
-                                  GValue         *return_gvalue,
-                                  guint           n_param_values,
-                                  const GValue   *param_values,
-                                  gpointer        invocation_hint,
-                                  gpointer        marshal_data);
+GValue         *return_gvalue,
+guint           n_param_values,
+const GValue   *param_values,
+gpointer        invocation_hint,
+gpointer        marshal_data);
 |#
 
 ;;;
@@ -149,10 +149,10 @@ void gi_cclosure_marshal_generic (GClosure       *closure,
 ;;;
 
 (def-info-func callable-info-get-return-type
-  (callable-info info-ffi))
+    (callable-info info-ffi))
 
 (cffi:defcenum transfer
-    "Represent the transfer ownership information of a callable-info or a arg-info."
+  "Represent the transfer ownership information of a callable-info or a arg-info."
   :nothing
   :container
   :everything)
@@ -164,20 +164,20 @@ void gi_cclosure_marshal_generic (GClosure       *closure,
   (callable-info info-ffi))
 
 (define-collection-getter callable-info-get-args
-    g-callable-info-get-n-args g-callable-info-get-arg)
+  g-callable-info-get-n-args g-callable-info-get-arg)
 
 ;;;
 ;;; arg-info
 ;;;
 
 (cffi:defcenum direction
-    "The direction of a arg-info."
+  "The direction of a arg-info."
   :in
   :out
   :in-out)
 
 (cffi:defcenum scope-type
-    "Scope type of a #GIArgInfo representing callback, determines how the
+  "Scope type of a #GIArgInfo representing callback, determines how the
      callback is invoked and is used to decided when the invoke structs
      can be freed."
   :invalid
@@ -213,14 +213,14 @@ void gi_cclosure_marshal_generic (GClosure       *closure,
   (arg-info info-ffi))
 
 (def-info-func arg-info-get-type
-  (arg-info info-ffi))
+    (arg-info info-ffi))
 
 ;;;
 ;;; type-info
 ;;;
 
 (cffi:defcenum type-tag
-    "The type tag of a type-info."
+  "The type tag of a type-info."
   ;; basic types
   (:void 0)
   :boolean
@@ -247,7 +247,7 @@ void gi_cclosure_marshal_generic (GClosure       *closure,
   :unichar)
 
 (cffi:defcenum array-type
-    "The type of array in a type-info."
+  "The type of array in a type-info."
   :c
   :array
   :ptr-array
@@ -263,11 +263,11 @@ void gi_cclosure_marshal_generic (GClosure       *closure,
   (type-info info-ffi))
 
 (def-info-func type-info-get-param-type
-  (type-info info-ffi)
+    (type-info info-ffi)
   (n :int))
 
 (def-info-func type-info-get-interface
-  (type-info info-ffi))
+    (type-info info-ffi))
 
 (cffi:defcfun (type-info-get-array-length "g_type_info_get_array_length") :int
   (type-info info-ffi))
@@ -281,8 +281,8 @@ void gi_cclosure_marshal_generic (GClosure       *closure,
 (cffi:defcfun (type-info-get-array-type "g_type_info_get_array_type") array-type
   (type-info info-ffi))
 
-;(define-collection-getter type-info-get-error-domains
-;    g-type-info-get-n-error-domains g-type-info-get-error-domain)
+					;(define-collection-getter type-info-get-error-domains
+					;    g-type-info-get-n-error-domains g-type-info-get-error-domain)
 
 ;;;
 ;;; error-domain-info
@@ -308,7 +308,7 @@ void gi_cclosure_marshal_generic (GClosure       *closure,
 ;;;
 
 (cffi:defbitfield field-info-flags
-    "Flags for a field-info."
+  "Flags for a field-info."
   :readable
   :writable)
 
@@ -322,15 +322,15 @@ void gi_cclosure_marshal_generic (GClosure       *closure,
   (field-info info-ffi))
 
 (def-info-func field-info-get-type
-  (field-info info-ffi))
+    (field-info info-ffi))
 
 #|
 gboolean g_field_info_get_field (GIFieldInfo     *field_info,
-				 gpointer         mem,
-				 GArgument       *value);
+gpointer         mem,
+GArgument       *value);
 gboolean g_field_info_set_field (GIFieldInfo     *field_info,
-				 gpointer         mem,
-				 const GArgument *value);
+gpointer         mem,
+const GArgument *value);
 |#
 
 ;;;
@@ -338,10 +338,10 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 ;;;
 
 (define-collection-getter union-info-get-fields
-    g-union-info-get-n-fields g-union-info-get-field)
+  g-union-info-get-n-fields g-union-info-get-field)
 
 (define-collection-getter union-info-get-methods
-    g-union-info-get-n-methods g-union-info-get-method)
+  g-union-info-get-n-methods g-union-info-get-method)
 
 (cffi:defcfun (union-info-is-discriminated "g_union_info_is_discriminated") :boolean
   (union-info info-ffi))
@@ -350,13 +350,13 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
   (union-info info-ffi))
 
 (def-info-func union-info-get-discriminator-type
-  (union-info info-ffi))
+    (union-info info-ffi))
 
 (define-collection-getter union-info-get-discriminators
     (g-union-info-get-n-fields :already-defined) g-union-info-get-discriminator)
 
 (def-info-func union-info-find-method
-  (union-info info-ffi)
+    (union-info info-ffi)
   (name :string))
 
 (cffi:defcfun (union-info-get-size "g_union_info_get_size") :int
@@ -370,13 +370,13 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 ;;;
 
 (define-collection-getter struct-info-get-fields
-    g-struct-info-get-n-fields g-struct-info-get-field)
+  g-struct-info-get-n-fields g-struct-info-get-field)
 
 (define-collection-getter struct-info-get-methods
-    g-struct-info-get-n-methods g-struct-info-get-method)
+  g-struct-info-get-n-methods g-struct-info-get-method)
 
 (def-info-func struct-info-find-method
-  (struct-info info-ffi)
+    (struct-info info-ffi)
   (name :string))
 
 (cffi:defcfun (struct-info-get-size "g_struct_info_get_size") :int
@@ -409,10 +409,10 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 ;;;
 
 (define-collection-getter enum-info-get-values
-    g-enum-info-get-n-values g-enum-info-get-value)
+  g-enum-info-get-n-values g-enum-info-get-value)
 
 (define-collection-getter enum-info-get-methods
-    g-enum-info-get-n-methods g-enum-info-get-method)
+  g-enum-info-get-n-methods g-enum-info-get-method)
 
 
 (cffi:defcfun (enum-info-get-storage-type "g_enum_info_get_storage_type") info-ffi
@@ -432,87 +432,87 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
   (object-info info-ffi))
 
 (def-info-func object-info-get-parent
-  (object-info info-ffi))
+    (object-info info-ffi))
 
 (define-collection-getter object-info-get-interfaces
-    g-object-info-get-n-interfaces g-object-info-get-interface)
+  g-object-info-get-n-interfaces g-object-info-get-interface)
 
 (define-collection-getter object-info-get-fields
-    g-object-info-get-n-fields g-object-info-get-field)
+  g-object-info-get-n-fields g-object-info-get-field)
 
 (define-collection-getter object-info-get-properties
-    g-object-info-get-n-properties g-object-info-get-property)
+  g-object-info-get-n-properties g-object-info-get-property)
 
 (define-collection-getter object-info-get-methods
-    g-object-info-get-n-methods g-object-info-get-method)
+  g-object-info-get-n-methods g-object-info-get-method)
 
 (def-info-func object-info-find-method
-  (object-info info-ffi)
+    (object-info info-ffi)
   (name :string))
 
 (define-collection-getter object-info-get-signals
-    g-object-info-get-n-signals g-object-info-get-signal)
+  g-object-info-get-n-signals g-object-info-get-signal)
 
 (def-info-func object-info-find-signal
-  (object-info info-ffi)
+    (object-info info-ffi)
   (name :string))
 
 (define-collection-getter object-info-get-vfuncs
-    g-object-info-get-n-vfuncs g-object-info-get-vfunc)
+  g-object-info-get-n-vfuncs g-object-info-get-vfunc)
 
 (def-info-func object-info-find-vfunc
-  (object-info info-ffi)
+    (object-info info-ffi)
   (name :string))
 
 (define-collection-getter object-info-get-constants
-    g-object-info-get-n-constants g-object-info-get-constant)
+  g-object-info-get-n-constants g-object-info-get-constant)
 
 (def-info-func object-info-get-class-struct
-  (object-info info-ffi))
+    (object-info info-ffi))
 
 ;;;
 ;;; interface-info
 ;;;
 
 (define-collection-getter interface-info-get-prerequisites
-    g-interface-info-get-n-prerequisites g-interface-info-get-prerequisite)
+  g-interface-info-get-n-prerequisites g-interface-info-get-prerequisite)
 
 (define-collection-getter interface-info-get-properties
-    g-interface-info-get-n-properties g-interface-info-get-property)
+  g-interface-info-get-n-properties g-interface-info-get-property)
 
 (define-collection-getter interface-info-get-methods
-    g-interface-info-get-n-methods g-interface-info-get-method)
+  g-interface-info-get-n-methods g-interface-info-get-method)
 
 (def-info-func interface-info-find-method
-  (interface-info info-ffi)
+    (interface-info info-ffi)
   (name :string))
 
 (define-collection-getter interface-info-get-signals
-    g-interface-info-get-n-signals g-interface-info-get-signal)
+  g-interface-info-get-n-signals g-interface-info-get-signal)
 
 (def-info-func interface-info-find-signal
-  (interface-info info-ffi)
+    (interface-info info-ffi)
   (name :string))
 
 (define-collection-getter interface-info-get-vfuncs
-    g-interface-info-get-n-vfuncs g-interface-info-get-vfunc)
+  g-interface-info-get-n-vfuncs g-interface-info-get-vfunc)
 
 (def-info-func interface-info-find-vfunc
-  (interface-info info-ffi)
+    (interface-info info-ffi)
   (name :string))
 
 (define-collection-getter interface-info-get-constants
-    g-interface-info-get-n-constants g-interface-info-get-constant)
+  g-interface-info-get-n-constants g-interface-info-get-constant)
 
 (def-info-func (interface-info-get-class-struct g-interface-info-get-iface-struct)
-  (interface-info info-ffi))
+    (interface-info info-ffi))
 
 ;;;
 ;;; property-info
 ;;;
 
 (cffi:defbitfield param-flags
-    "aspects of parameters"
+  "aspects of parameters"
   :readable
   :writable
   :construct
@@ -527,14 +527,14 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
   (property-info info-ffi))
 
 (def-info-func property-info-get-type
-  (property-info info-ffi))
+    (property-info info-ffi))
 
 ;;;
 ;;; signal-info
 ;;;
 
 (cffi:defbitfield signal-flags
-    "signal's behaviour"
+  "signal's behaviour"
   :run-first
   :run-last
   :run-cleanup
@@ -547,7 +547,7 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
   (signal-info info-ffi))
 
 (def-info-func signal-info-get-class-closure
-  (signal-info info-ffi))
+    (signal-info info-ffi))
 
 (cffi:defcfun (signal-info-true-stops-emit "g_signal_info_true_stops_emit") :boolean
   (signal-info info-ffi))
@@ -557,7 +557,7 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 ;;;
 
 (cffi:defbitfield vfunc-info-flags
-    "Flags of a vfunc-info struct."
+  "Flags of a vfunc-info struct."
   :must-chain-up
   :must-override
   :must-not-override)
@@ -569,17 +569,17 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
   (vfunc-info info-ffi))
 
 (def-info-func vfunc-info-get-signal
-  (vfunc-info info-ffi))
+    (vfunc-info info-ffi))
 
 (def-info-func vfunc-info-get-invoker
-  (vfunc-info info-ffi))
+    (vfunc-info info-ffi))
 
 ;;;
 ;;; constant-info
 ;;;
 
 (def-info-func constant-info-get-type
-  (constant-info info-ffi))
+    (constant-info info-ffi))
 
 (progn 
   (cffi:defcfun g-constant-info-get-value :int
@@ -597,7 +597,7 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
 ;;;
 
 (cffi:defbitfield function-info-flags
-    ""
+  ""
   :is-method
   :is-constructor
   :is-getter
@@ -612,10 +612,10 @@ gboolean g_field_info_set_field (GIFieldInfo     *field_info,
   (function-info info-ffi))
 
 (def-info-func function-info-get-property
-  (function-info info-ffi))
+    (function-info info-ffi))
 
 (def-info-func function-info-get-vfunc
-  (function-info info-ffi))
+    (function-info info-ffi))
 
 #|
 #define G_INVOKE_ERROR (g_invoke_error_quark ())
@@ -623,18 +623,18 @@ GQuark g_invoke_error_quark (void);
 
 typedef enum
 {
-  G_INVOKE_ERROR_FAILED,
-  G_INVOKE_ERROR_SYMBOL_NOT_FOUND,
-  G_INVOKE_ERROR_ARGUMENT_MISMATCH
+G_INVOKE_ERROR_FAILED,
+G_INVOKE_ERROR_SYMBOL_NOT_FOUND,
+G_INVOKE_ERROR_ARGUMENT_MISMATCH
 } GInvokeError;
 
 gboolean              g_function_info_invoke         (GIFunctionInfo *info,
-						      const GArgument  *in_args,
-						      int               n_in_args,
-						      const GArgument  *out_args,
-						      int               n_out_args,
-						      GArgument        *return_value,
-						      GError          **error);
+const GArgument  *in_args,
+int               n_in_args,
+const GArgument  *out_args,
+int               n_out_args,
+GArgument        *return_value,
+GError          **error);
 
 |#
 

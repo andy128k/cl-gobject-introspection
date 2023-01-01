@@ -32,8 +32,8 @@
       object-class
     (setf object-info info
 	  parent (if-let ((parent-info (object-info-get-parent info)))
-		   (find-build-interface parent-info)
-		   nil)
+			 (find-build-interface parent-info)
+			 nil)
 	  interface-infos (object-info-get-interfaces info)
 	  signals (list nil)
 	  fields-dict (iter (for field-info :in (object-info-get-fields info))
@@ -73,18 +73,18 @@
     (or (object-info-find-method info cname)
 	(iter (for intf :in interface-infos)
 	      (if-let ((func (interface-info-find-method intf cname)))
-		(return func))))))
+		      (return func))))))
 
 (defun object-class-find-method-function-info (object-class cname)
   (if-let ((function-info (object-class-find-function-info object-class cname)))
-    (when (method? (function-info-get-flags function-info))
-      function-info)
-    (if-let ((parent (parent-of object-class)))
-      (object-class-find-method-function-info parent cname))))
+	  (when (method? (function-info-get-flags function-info))
+	    function-info)
+	  (if-let ((parent (parent-of object-class)))
+		  (object-class-find-method-function-info parent cname))))
 
 (defun object-class-build-method (object-class cname)
   (if-let ((func-info (object-class-find-method-function-info object-class cname)))
-    (and func-info (build-function func-info))))
+	  (and func-info (build-function func-info))))
 
 (defun object-class-find-build-method (object-class cname)
   (with-accessors ((method-cache method-cache-of))
@@ -170,9 +170,9 @@
       (or (gethash gtype *fake-object-classes*)
           (setf (gethash gtype *fake-object-classes*)
                 (make-instance 'fake-object-class
-                  :gtype gtype
-                  :name (cffi:foreign-funcall "g_type_name"
-                                              :ulong gtype :string)))))))
+			       :gtype gtype
+			       :name (cffi:foreign-funcall "g_type_name"
+							   :ulong gtype :string)))))))
 
 (defun gobject (gtype ptr)
   (let* ((info (repository-find-by-gtype nil gtype))
@@ -183,8 +183,8 @@
     (if (member info-type '(:object :struct))
 	(let ((object-class (find-build-interface info)))
 	  (if (eq info-type :object)
-	    (build-object-ptr object-class ptr)
-	    (build-struct-ptr object-class ptr)))
+	      (build-object-ptr object-class ptr)
+	      (build-struct-ptr object-class ptr)))
         (error "gtype ~a not found in GI. Found ~a" 
                gtype info-type))))
 
@@ -266,9 +266,9 @@
     (or (object-info-find-signal object-info cname)
 	(iter (for intf-info :in (object-info-get-interfaces object-info))
 	      (when-let ((signal-info (interface-info-find-signal intf-info cname)))
-		(return signal-info)))
+			(return signal-info)))
 	(when-let ((parent (parent-of object-class)))
-	  (object-class-find-signal-info parent cname)))))
+		  (object-class-find-signal-info parent cname)))))
 
 (defmethod get-signal-desc ((object-class object-class) name)
   (let* ((cname (c-name name))

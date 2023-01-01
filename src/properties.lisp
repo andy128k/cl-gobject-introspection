@@ -1,7 +1,7 @@
 (in-package :gir)
 
 (cffi:defcstruct g-param-spec
-  (g-type-instance :pointer)
+    (g-type-instance :pointer)
   (name :string)
   (flags :int)
   (spec-type :ulong)
@@ -30,11 +30,11 @@
            (type (satisfies cffi:pointerp) ptr))
   (values-list 
    (loop :for arg :in args
-      :collect (let* ((name (c-name arg))
-                      (gtype (property-gtype ptr name))
-                      (gvalue (make-gvalue gtype)))
-                 (g-object-get-property ptr name gvalue)
-                 (gvalue->lisp/free gvalue gtype)))))
+	 :collect (let* ((name (c-name arg))
+			 (gtype (property-gtype ptr name))
+			 (gvalue (make-gvalue gtype)))
+                    (g-object-get-property ptr name gvalue)
+                    (gvalue->lisp/free gvalue gtype)))))
 
 (fmakunbound 'set-properties!)
 (defun set-properties! (ptr args)
@@ -45,9 +45,3 @@
       (g-object-set-property ptr name gvalue)
       (cffi:foreign-free gvalue))
     (when rest (set-properties! ptr rest))))
-    
-    
-          
-
-  
-  

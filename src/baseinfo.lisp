@@ -85,13 +85,13 @@
 (defmacro def-info-func (names &body args)
   (let* ((lisp-name (if (listp names) (car names) names))
 	 (foreign-name
-	  (if (listp names) (cadr names)
-	      #-clisp
-	      (make-symbol (concatenate 'string "G-" (symbol-name lisp-name)))
-	      #+clisp
-	      (intern (concatenate 'string
-				   "G-"
-				   (symbol-name lisp-name)) "GIR")))
+	   (if (listp names) (cadr names)
+	       #-clisp
+	       (make-symbol (concatenate 'string "G-" (symbol-name lisp-name)))
+	       #+clisp
+	       (intern (concatenate 'string
+				    "G-"
+				    (symbol-name lisp-name)) "GIR")))
 	 (real-args (if (stringp (car args)) (cdr args) args))
 	 (arg-names (mapcar #'first real-args)))
     `(progn
@@ -127,11 +127,11 @@
 			      (value :pointer))
     (setf (cffi:mem-ref iter :pointer) (cffi:null-pointer))
     (loop
-       (let ((r (g-base-info-iterate-attributes info iter name value)))
-	 (unless r
-	   (return))
-	 ;; foreign-string-to-lisp
-	 (pprint (cons name value))))))
+      (let ((r (g-base-info-iterate-attributes info iter name value)))
+	(unless r
+	  (return))
+	;; foreign-string-to-lisp
+	(pprint (cons name value))))))
 
 (cffi:defcfun g-base-info-get-container info-ffi
   (info info-ffi))
