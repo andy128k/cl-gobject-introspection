@@ -2,7 +2,7 @@
   (:use #:cl))
 (in-package #:gir-test)
 
-(defvar *gtk* (gir:ffi "Gtk"))
+(defvar *gtk* (gir:ffi "Gtk" "3.0"))
 
 (cffi:defcallback hello :void ((btn-ptr :pointer))
   (let ((button (gir::build-object-ptr (gir:nget *gtk* "Button") btn-ptr)))

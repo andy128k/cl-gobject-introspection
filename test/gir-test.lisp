@@ -17,7 +17,7 @@
 	       (progn (setf *gio* (require-namespace "Gio"))
 		      (type-of *gio*))))
       (is (eql 'gir::namespace
-	       (progn (setf *gtk* (require-namespace "Gtk"))
+	       (progn (setf *gtk* (require-namespace "Gtk" "3.0"))
 		      (type-of *gtk*)))))
 
 (test (enum :depends-on namespace)
