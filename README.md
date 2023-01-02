@@ -31,6 +31,20 @@ Common Lisp bindings to [gobject-introspection](https://gitlab.gnome.org/GNOME/g
   (gir:invoke (app 'run) nil))
 ```
 
+More examples may be found in an `examples` directory.
+
+### Hello, World!
+
+![Hello, World screenshot](https://raw.githubusercontent.com/andy128k/cl-gobject-introspection/master/examples/screenshots/screenshot-hello-world.png)
+
+### Flood Game
+
+![Flood Game screenshot](https://raw.githubusercontent.com/andy128k/cl-gobject-introspection/master/examples/screenshots/screenshot-flood-game.png)
+
+### Maze
+
+![Maze screenshot](https://raw.githubusercontent.com/andy128k/cl-gobject-introspection/master/examples/screenshots/screenshot-maze.png)
+
 ## 1. Main interface
 
 Interface with the GObjectIntrospection is based on repositories. Main
