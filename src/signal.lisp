@@ -40,14 +40,13 @@
 			    params
 			    '(:struct g-value-struct)
 			    i))
-		   (val (gvalue->lisp/free gvalue (gvalue-gtype gvalue)
-					   :no-free t)))
+		   (val (gvalue-get gvalue)))
 	      (if (typep val 'object-instance)
 		  (object-setup-gc val :nothing)
 		  val)))))
     (let ((res (apply lisp-func lisp-params)))
       (unless (cffi:null-pointer-p return)
-        (set-value! return (gvalue-gtype return) res)))))
+        (gvalue-set return res)))))
 
 (cffi:defcallback free-closure :void ((data :pointer) (closure :pointer))
   (declare (ignore data))

@@ -34,14 +34,17 @@
 			 (gtype (property-gtype ptr name))
 			 (gvalue (make-gvalue gtype)))
                     (g-object-get-property ptr name gvalue)
-                    (gvalue->lisp/free gvalue gtype)))))
+                    (prog1
+                      (gvalue-get gvalue)
+                      (gvalue-free gvalue))))))
 
 (fmakunbound 'set-properties!)
 (defun set-properties! (ptr args)
   (destructuring-bind (key val &rest rest) args
     (let* ((name (c-name key))
            (gtype (property-gtype ptr name))
-           (gvalue (make-gvalue gtype val)))
+           (gvalue (make-gvalue gtype)))
+      (gvalue-set gvalue val)
       (g-object-set-property ptr name gvalue)
-      (cffi:foreign-free gvalue))
+      (gvalue-free gvalue))
     (when rest (set-properties! ptr rest))))
