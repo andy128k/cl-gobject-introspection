@@ -20,6 +20,15 @@
 	       (progn (setf *gtk* (require-namespace "Gtk" "3.0"))
 		      (type-of *gtk*)))))
 
+(test bad-namespace
+      "Test GError signals"
+      (is (eql :error-signalled
+               (handler-case
+                   (require-namespace "NonExistingNamespace")
+                 (error (e)
+                   (declare (ignore e))
+                   :error-signalled)))))
+
 (test (enum :depends-on namespace)
       "Test the enumeration"
       (is (= 0 (nget *gtk* "WindowType" :toplevel))))
