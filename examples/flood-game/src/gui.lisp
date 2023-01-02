@@ -1,7 +1,7 @@
-
 (in-package :flood-game-example)
 
-(defvar *gtk* (gir:require-namespace "Gtk"))
+(defvar *glib* (gir:require-namespace "GLib"))
+(defvar *gtk* (gir:require-namespace "Gtk" "3.0"))
 
 (defmacro with-gtk-event-loop=window+drawing-area
     ((window-symbol drawing-area-symbol
@@ -72,22 +72,29 @@
            (cairo:with-context (,context-bind)
              ,@code))))))
 
+(cffi:defcallback timeout-func :boolean ((data :pointer))
+  (funcall (gir:trampoline-get-function data)))
+
 (defun gtk-window-with-cairo-painting (drawer) 
   (let ((timeout-id nil))
     (with-gtk-event-loop=window+drawing-area
         (window drawing-area
-         :window-title "Flood game example"
-         :protected-final-code
-         ((when timeout-id
-            (glib.timeout-add:timeout-remove timeout-id))))
+                :window-title "Flood game example"
+                :protected-final-code
+                ((when timeout-id
+                   (gir:invoke (*glib* 'source-remove) timeout-id))))
       (gir:connect window :realize
                    (lambda (window) 
                      (flet (($redraw ()
                               (gir:invoke (window :queue-draw))
                               t))
                        (setf timeout-id
-                             (glib.timeout-add:timeout-add 300
-                                                           #'$redraw)))))
+			     (gir:invoke (*glib* 'timeout-add)
+					 0
+					 300
+					 (cffi:callback timeout-func)
+					 (gir:make-trampoline #'$redraw)
+					 (cffi:callback gir:destroy-trampoline))))))
       (gir:connect drawing-area :draw
                    (with-area-drawer-form (drawing-area context)
                      drawing-area

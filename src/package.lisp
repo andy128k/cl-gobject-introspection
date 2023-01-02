@@ -182,4 +182,8 @@
    #:list-interfaces-desc
    #:struct-class
    #:enum-desc
-   #:values-of))
+   #:values-of
+
+   #:make-trampoline
+   #:trampoline-get-function
+   #:destroy-trampoline))
