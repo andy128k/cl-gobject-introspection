@@ -89,13 +89,31 @@
   (code :int)
   (message :string))
 
+(cffi:defcfun g-error-free :void (g-error :pointer))
+
+(define-condition gerror (error)
+  ((domain :initarg :domain :reader gerror-domain)
+   (code :initarg :code :reader gerror-code)
+   (message :initarg :message :reader gerror-message))
+  (:report (lambda (condition stream)
+             (format stream "~A" (gerror-message condition)))))
+
+(defun make-gerror-from-ptr (ptr)
+  (make-condition 'gerror
+                  :domain (cffi:foreign-slot-value ptr '(:struct g-error) 'domain)
+                  :code (cffi:foreign-slot-value ptr '(:struct g-error) 'code)
+                  :message (cffi:foreign-slot-value ptr '(:struct g-error) 'message)))
+
 (defmacro with-gerror (err &body body)
   `(cffi:with-foreign-object (,err :pointer)
      (setf (cffi:mem-ref ,err :pointer) (cffi:null-pointer))
      (prog1
-	 (progn ,@body)
-       (unless (cffi:null-pointer-p (cffi:mem-ref ,err :pointer))
-	 (error "~A" (cffi:foreign-slot-value (cffi:mem-ref ,err :pointer) '(:struct g-error) 'message))))))
+         (progn ,@body)
+       (let ((e (cffi:mem-ref ,err :pointer)))
+	 (unless (cffi:null-pointer-p e)
+           (let ((condition (make-gerror-from-ptr e)))
+             (g-error-free e)
+             (error condition)))))))
 
 (defmacro define-collection-getter (name get-count get-item)
   (let ((def-get-count (unless (listp get-count)
