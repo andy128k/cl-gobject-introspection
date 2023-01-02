@@ -17,12 +17,10 @@
 
 ;; Define the closure struct to compute its size
 (cffi:defcstruct g-closure
-    (flags :unsigned-int)
+  (flags :unsigned-int)
   (marshal :pointer)
   (data :pointer)
   (notifiers :pointer))
-
-(defvar *objects* (make-hash-table))
 
 (cffi:defcallback marshal :void ((closure :pointer)
                                  (return :pointer)
@@ -31,7 +29,7 @@
                                  (hint :pointer)
                                  (data :pointer))
   (declare (ignore hint data))
-  (let ((lisp-func (gethash (cffi:pointer-address closure) *objects*))
+  (let ((lisp-func (trampoline-get-function closure))
         (lisp-params 
           (loop
             :for i :below n-values
@@ -50,14 +48,13 @@
 
 (cffi:defcallback free-closure :void ((data :pointer) (closure :pointer))
   (declare (ignore data))
-  (when (not (cffi:null-pointer-p closure))
-    (remhash (cffi:pointer-address closure) *objects*)))
+  (destroy-trampoline closure))
 
 (defun make-closure (func)
   (let* ((g-closure-size (cffi:foreign-type-size '(:struct g-closure)))
          (closure-ptr (g-closure-new-simple
                        g-closure-size (cffi:null-pointer)))) ;; sizeof(GClosure) = 16
-    (setf (gethash (cffi:pointer-address closure-ptr) *objects*) func)
+    (make-trampoline func closure-ptr)
     (g-closure-set-marshal closure-ptr (cffi:callback marshal))
     (g-closure-add-finalize-notifier closure-ptr
                                      (cffi:null-pointer)

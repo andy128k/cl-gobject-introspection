@@ -1,8 +1,8 @@
 
 (in-package :maze-example)
 
-(defvar *gtk* (gir:require-namespace "Gtk"))
-(defvar *gdk* (gir:require-namespace "Gdk"))
+(defvar *gtk* (gir:require-namespace "Gtk" "3.0"))
+(defvar *gdk* (gir:require-namespace "Gdk" "3.0"))
 
 (defstruct (maze-geometry
             (:constructor make-maze-geometry
