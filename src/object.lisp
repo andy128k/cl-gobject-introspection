@@ -215,17 +215,25 @@
 			       :name (cffi:foreign-funcall "g_type_name"
 							   :ulong gtype :string)))))))
 
+(defvar use-fake-objects nil)
+
 (defun gobject (gtype ptr)
-  (let* ((info (repository-find-by-gtype nil gtype))
+  (let* ((info (or (repository-find-by-gtype nil gtype)
+		   (if (not use-fake-objects)
+		       (some (lambda (gtype)
+			       (repository-find-by-gtype nil gtype))
+			     (g-type-interfaces gtype)))))
 	 (info-type (and info (info-get-type info)))
          (object-class  (if (null info) (find-fake-object-class gtype))))
     (when object-class
       (return-from gobject (build-object-ptr object-class ptr)))
-    (if (member info-type '(:object :struct))
+    (if (member info-type '(:object :struct :interface))
 	(let ((object-class (find-build-interface info)))
 	  (if (eq info-type :object)
 	      (build-object-ptr object-class ptr)
-	      (build-struct-ptr object-class ptr)))
+	      (if (eq info-type :interface)
+		  (build-object-ptr object-class ptr)
+		  (build-struct-ptr object-class ptr))))
         (error "gtype ~a not found in GI. Found ~a" 
                gtype info-type))))
 
