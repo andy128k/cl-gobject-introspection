@@ -21,6 +21,6 @@
 (defun main ()
   (let ((app (gir:invoke (*gtk* "Application" 'new)
                          "com.example.helloworld"
-                         (gir:nget *gio* "ApplicationFlags" :default-flags))))
+                         (gir:nget *gio* "ApplicationFlags" :flags_none))))
     (gir:connect app :activate #'activate)
     (gir:invoke (app 'run) nil)))
