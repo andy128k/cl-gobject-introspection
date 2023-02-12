@@ -1028,6 +1028,7 @@
              #'c2mop:slot-definition-name
              (c2mop:class-slots (class-of arg)))))
 
+  (assert (not (find-method #'print-object '(:around) (list t t))))
   (defmethod print-object :around (obj stream)
     (if (member (class-of obj) (mapcar 'find-class '(arg argument-type arg-data return-data return-value c-array-type pointer-type)))
 	(print-unreadable-object (obj stream :type t :identity t)
