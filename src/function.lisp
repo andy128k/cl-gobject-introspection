@@ -370,6 +370,9 @@
 (defclass struct-type (interface-type)
   ())
 
+(defmethod mem-alloc (pos (struct-type struct-type))
+  (setf (cffi:mem-ref pos :pointer) (alloc-foreign struct-type)))
+
 (defmethod free-from-foreign-aggregated-p ((struct-type struct-type))
   (declare (ignore struct-type)))
 
@@ -396,6 +399,9 @@
 
 (defclass union-type ()
   ((size :initarg :size)))
+
+(defmethod mem-alloc (pos (union-type union-type))
+  (setf (cffi:mem-ref pos :pointer) (alloc-foreign union-type)))
 
 (defmethod free-from-foreign-aggregated-p ((union-type union-type))
   (declare (ignore union-type)))
@@ -778,9 +784,10 @@
 	   (setf giarg inp)
 	   (incf-giargs inp))
 	  (:in-out
-	   (setf giarg voutp)
-	   (pointer->giarg inp voutp)
-	   (pointer->giarg outp voutp)
+	   (mem-alloc voutp type)
+	   (setf giarg (cffi:mem-ref voutp :pointer))
+	   (pointer->giarg inp (cffi:mem-ref voutp :pointer))
+	   (pointer->giarg outp (cffi:mem-ref voutp :pointer))
 	   (incf-giargs inp)
 	   (incf-giargs outp)
 	   (incf-giargs voutp))
@@ -828,14 +835,16 @@
 (defun out-arg->value (arg)
   (with-slots (data giarg length-arg)
       arg
-    (with-slots (type)
+    (with-slots (type direction)
 	data
       (let ((real-type
 	      (if length-arg
 		  (copy-find-set-c-array-type-length type
 						     (out-arg->value length-arg))
 		  type)))
-	(mem-get giarg real-type)))))
+	(prog1 (mem-get giarg real-type)
+	  (when (and (eql direction :in-out))
+	    (mem-free giarg real-type)))))))
 
 (defun in-arg-clear (arg)
   (with-slots (data giarg length-arg (arg-value value))
