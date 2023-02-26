@@ -988,7 +988,7 @@
 					    :type-desc (desc-of-type (gir-type-of ret-data)))
 	      out-args-desc)
 	(iter (for arg-data :in args-data)
-	      (with-slots (name type direction for-array-length-p)
+	      (with-slots (name type direction for-array-length-p) ; ???
 		  arg-data
 		(unless for-array-length-p
 		  (let ((arg-desc (make-instance 'variable-desc :name name

@@ -166,6 +166,7 @@
    #:arguments-desc-of
    #:returns-desc-of
    #:object-class
+   #:object-class-name
    #:gir-class-of
    #:parent-of
    #:list-fields-desc
