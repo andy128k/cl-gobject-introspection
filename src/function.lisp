@@ -80,6 +80,7 @@
 		    :initform nil :type boolean)))
 
 (defmethod initialize-copy ((obj freeable-type) (copy freeable-type))
+  (when (next-method-p) (call-next-method))
   (copy-slots ((free-from-foreign free-to-foreign)) (obj copy)))
 
 (defgeneric mem-size (type))
@@ -93,7 +94,9 @@
 
 (defmethod alloc-foreign (type &key (initial-value nil initial-value-p))
   (let* ((size (mem-size type))
-	 (pos (cffi:foreign-alloc :uint8 :count size)))
+	 (pos (if initial-value-p
+		  (cffi:foreign-alloc :uint8 :count size)
+		  (cffi:foreign-alloc :uint8 :count size :initial-element 0))))
     (when initial-value-p
       (mem-set pos initial-value type))
     pos))
@@ -367,6 +370,9 @@
 (defclass struct-type (interface-type)
   ())
 
+(defmethod mem-alloc (pos (struct-type struct-type))
+  (setf (cffi:mem-ref pos :pointer) (alloc-foreign struct-type)))
+
 (defmethod free-from-foreign-aggregated-p ((struct-type struct-type))
   (declare (ignore struct-type)))
 
@@ -393,6 +399,9 @@
 
 (defclass union-type ()
   ((size :initarg :size)))
+
+(defmethod mem-alloc (pos (union-type union-type))
+  (setf (cffi:mem-ref pos :pointer) (alloc-foreign union-type)))
 
 (defmethod free-from-foreign-aggregated-p ((union-type union-type))
   (declare (ignore union-type)))
@@ -685,34 +694,34 @@
    (direction :reader direction-of)
    (for-array-length-p :initform nil :accessor for-array-length-p-of)
    (array-length :reader array-length-of)
-   (ugly-offset :initform nil :accessor ugly-offset)
    (caller-allocates)
    (transfer)))
 
 (defmethod shared-initialize :after ((arg-data arg-data)
 				     slot-names &key arg-info)
-  (with-slots (name type is-array-type direction
-	       array-length caller-allocates)
-      arg-data
-    (case arg-info
-      (:object-argument
-       (setf name :this
-	     type (make-object/struct-pointer-type)
-	     caller-allocates nil
-	     direction :in
-	     is-array-type nil
-	     array-length nil))
-      (otherwise
-       (let ((type-info (arg-info-get-type arg-info))
-	     (transfer (arg-info-get-ownership-transfer arg-info)))
-	 (setf name (info-get-name arg-info)
-	       caller-allocates (arg-info-is-caller-allocates arg-info)
-	       type (build-argument-type type-info transfer
-					 :force-pointer caller-allocates)
-	       direction (arg-info-get-direction arg-info)
-	       is-array-type
-	       (find-object-with-class type (find-class 'c-array-type))
-	       array-length (get-array-length type-info)))))))
+  (when arg-info      ;don't handle calls from make-instances-obsolete
+    (with-slots (name type is-array-type direction
+		 array-length caller-allocates)
+	arg-data
+      (case arg-info
+	(:object-argument
+	 (setf name :this
+	       type (make-object/struct-pointer-type)
+	       caller-allocates nil
+	       direction :in
+	       is-array-type nil
+	       array-length nil))
+	(otherwise
+	 (let ((type-info (arg-info-get-type arg-info))
+	       (transfer (arg-info-get-ownership-transfer arg-info)))
+	   (setf name (info-get-name arg-info)
+		 caller-allocates (arg-info-is-caller-allocates arg-info)
+		 type (build-argument-type type-info transfer
+					   :force-pointer caller-allocates)
+		 direction (arg-info-get-direction arg-info)
+		 is-array-type
+		 (find-object-with-class type (find-class 'c-array-type))
+		 array-length (get-array-length type-info))))))))
 
 (let ((o-a-d-cache (make-instance 'arg-data
 				  :arg-info :object-argument)))
@@ -775,9 +784,10 @@
 	   (setf giarg inp)
 	   (incf-giargs inp))
 	  (:in-out
-	   (setf giarg voutp)
-	   (pointer->giarg inp voutp)
-	   (pointer->giarg outp voutp)
+	   (mem-alloc voutp type)
+	   (setf giarg (cffi:mem-ref voutp :pointer))
+	   (pointer->giarg inp (cffi:mem-ref voutp :pointer))
+	   (pointer->giarg outp (cffi:mem-ref voutp :pointer))
 	   (incf-giargs inp)
 	   (incf-giargs outp)
 	   (incf-giargs voutp))
@@ -799,12 +809,6 @@
 	     :first (make-arg data giargs-in giargs-out values-out)
 	     :then (make-arg data inp outp voutp))
 	(collect arg)))
-
-(defun ugly-nth (data array-length args)
-  (nth (if (ugly-offset data)
-	   (1+ array-length)
-	   array-length)
-       args))
 
 (defun arg-setup-length (arg args methodp)
   (with-slots (data length-arg)
@@ -831,14 +835,16 @@
 (defun out-arg->value (arg)
   (with-slots (data giarg length-arg)
       arg
-    (with-slots (type)
+    (with-slots (type direction)
 	data
       (let ((real-type
 	      (if length-arg
 		  (copy-find-set-c-array-type-length type
 						     (out-arg->value length-arg))
 		  type)))
-	(mem-get giarg real-type)))))
+	(prog1 (mem-get giarg real-type)
+	  (when (and (eql direction :in-out))
+	    (mem-free giarg real-type)))))))
 
 (defun in-arg-clear (arg)
   (with-slots (data giarg length-arg (arg-value value))
@@ -850,8 +856,8 @@
 		(if is-array-type
 		    (copy-find-set-c-array-type-length 
                      type
-                     (when length-arg (slot-value length-arg 'value)))
-		    type)))
+		     (length arg-value))
+		     type)))
 	  (mem-free giarg real-type))))))
 
 (defun in/out-args (args)
@@ -882,16 +888,17 @@
 
 (defmethod shared-initialize :after ((return-data return-data)
 				     slot-names &key callable-info return-interface)
-  (with-slots (type array-length)
-      return-data
-    (let ((type-info (callable-info-get-return-type callable-info))
-	  (transfer (callable-info-get-caller-owns callable-info)))
-      (setf type
-	    (if return-interface
-		(let ((intf-ptr-type (make-interface-pointer-type return-interface :everything)))
-		  (make-instance 'argument-type :contained-type intf-ptr-type :field 'v-pointer))
-		(build-argument-type type-info transfer))
-	    array-length (get-array-length type-info)))))
+  (when callable-info ;don't handle calls from make-instances-obsolete
+    (with-slots (type array-length)
+	return-data
+      (let ((type-info (callable-info-get-return-type callable-info))
+	    (transfer (callable-info-get-caller-owns callable-info)))
+	(setf type
+	      (if return-interface
+		  (let ((intf-ptr-type (make-interface-pointer-type return-interface :everything)))
+		    (make-instance 'argument-type :contained-type intf-ptr-type :field 'v-pointer))
+		  (build-argument-type type-info transfer))
+	      array-length (get-array-length type-info))))))
 
 (defclass return-value ()
   ((data :initarg :data)
@@ -1033,6 +1040,7 @@
              #'c2mop:slot-definition-name
              (c2mop:class-slots (class-of arg)))))
 
+  (assert (not (find-method #'print-object '(:around) (list t t))))
   (defmethod print-object :around (obj stream)
     (if (member (class-of obj) (mapcar 'find-class '(arg argument-type arg-data return-data return-value c-array-type pointer-type)))
 	(print-unreadable-object (obj stream :type t :identity t)
