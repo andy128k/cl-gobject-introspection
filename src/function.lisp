@@ -92,13 +92,12 @@
 (defgeneric free-foreign (ptr type))
 
 (defmethod alloc-foreign (type &key (initial-value nil initial-value-p))
-  (let* ((size (mem-size type))
-	 (pos (if initial-value-p
-		  (cffi:foreign-alloc :uint8 :count size)
-		  (cffi:foreign-alloc :uint8 :count size :initial-element 0))))
-    (when initial-value-p
-      (mem-set pos initial-value type))
-    pos))
+  (let ((size (mem-size type)))
+    (if initial-value-p
+        (let ((buf (cffi:foreign-alloc :uint8 :count size)))
+          (mem-set buf initial-value type)
+          buf)
+        (cffi:foreign-alloc :uint8 :count size :initial-element 0))))
 
 (defmethod free-foreign (ptr type)
   (unless (cffi:null-pointer-p ptr)
