@@ -8,7 +8,7 @@
     (t "libgobject-2.0"))
   (cffi:define-foreign-library girepository
       (:darwin "libgirepository-1.0.dylib")
-    (:unix (:or "libgirepository-1.0.so" "libgirepository-1.0.so.1"))
+    (:unix (:or "libgirepository-1.0.so.1" "libgirepository-1.0.so"))
     (:windows (:or "libgirepository-1.0.dll" "libgirepository-1.0.0.dll"
                    "libgirepository-1.0-1.dll"))
     (t "libgirepository-1.0")))
