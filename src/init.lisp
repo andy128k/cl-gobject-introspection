@@ -4,7 +4,7 @@
   (cffi:define-foreign-library gobject
       (:darwin "libgobject-2.0.dylib")
     (:unix (:or "libgobject-2.0.so.0" "libgobject-2.0.so"))
-    (:windows "libgobject-2.0-0.dll")
+    (:windows (:or "libgobject-2.0-0.dll" "gobject-2.0-0.dll"))
     (t "libgobject-2.0"))
   (cffi:define-foreign-library girepository
       (:darwin "libgirepository-1.0.dylib")
