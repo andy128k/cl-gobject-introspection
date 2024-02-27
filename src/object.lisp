@@ -21,8 +21,11 @@
    (function-cache :reader function-cache-of)
    (method-cache :reader method-cache-of)))
 
+(defun object-class-name (obj-cls)
+  (info-get-name (info-of obj-cls)))
+
 (defmethod print-object ((obj-cls object-class) s)
-  (format s "#O<~a>" (info-get-name (info-of obj-cls))))
+  (format s "#O<~a>" (object-class-name obj-cls)))
 
 (defmethod shared-initialize :after ((object-class object-class) slot-names
 				     &key info)

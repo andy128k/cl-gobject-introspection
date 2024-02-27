@@ -50,11 +50,14 @@
   (declare (ignore data))
   (destroy-trampoline closure))
 
-(defun make-closure (func)
+(defun make-closure (func signal-desc)
   (let* ((g-closure-size (cffi:foreign-type-size '(:struct g-closure)))
          (closure-ptr (g-closure-new-simple
                        g-closure-size (cffi:null-pointer)))) ;; sizeof(GClosure) = 16
-    (make-trampoline func closure-ptr)
+    (flet ((cb (&rest args)
+	     (format t "DESC ~A" signal-desc)
+	     (apply func args)))
+      (make-trampoline #'cb closure-ptr))
     (g-closure-set-marshal closure-ptr (cffi:callback marshal))
     (g-closure-add-finalize-notifier closure-ptr
                                      (cffi:null-pointer)
@@ -75,7 +78,11 @@
   (let* ((object-ptr (if (typep g-object 'object-instance)
                          (this-of g-object)
                          g-object))
+	 (gir-class (when (typep g-object 'object-instance)
+                      (gir-class-of g-object)))
          (str-signal (string-downcase signal))
+	 (signal-desc (when gir-class
+			(get-signal-desc gir-class signal)))
          (c-handler (cond 
                       ((and (symbolp c-handler) (fboundp c-handler))
                        (symbol-function c-handler))
@@ -86,7 +93,7 @@
            (typecase c-handler
              (function (g-signal-connect-closure 
 			object-ptr str-signal
-			(make-closure c-handler)
+                       (make-closure c-handler signal-desc)
 			after))
              (t (g-signal-connect-data object-ptr
                                        str-signal 
