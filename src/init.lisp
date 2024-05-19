@@ -143,4 +143,4 @@
   (destroy-data :pointer)
   (connect-flags connect-flags))
 
-#+sbcl (sb-ext::set-floating-point-modes :traps nil)
+#+sbcl (sb-int:set-floating-point-modes :traps nil)
