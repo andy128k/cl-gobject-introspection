@@ -136,7 +136,7 @@
 (test (object-constructor :depends-on (and function enum))
       "Test the object constructor"
       (is (eql 'gir::object-instance
-	       (let ((flags (nget *gio* "ApplicationFlags" :flags_none)))
+	       (let ((flags (nget *gio* "ApplicationFlags" :handles-open)))
 		 (setf *app* (invoke (*gio* "Application" 'new)
 				     *app-id1* flags))
 		 (type-of *app*)))))
@@ -180,6 +180,20 @@
 			 (declare (ignore ret))
 			 time-val))
 		      'gir::struct-instance)))
+
+(test (object-signal :depends-on object-constructor)
+      "Test signal parameters mapping"
+      (is (equal '()
+		 (let* ((icon1 (gir:invoke (*gio* "ThemedIcon" 'new) "open"))
+			(icon2 (gir:invoke (*gio* "ThemedIcon" 'new) "document-new"))
+			(store (gir:invoke (*gio* "ListStore" 'new)
+					   (gir:invoke (icon1 'get-type))))
+			(calls nil))
+		   (gir:connect store 'items-changed (lambda (&rest args)
+						       (push args calls)))
+		   (gir:invoke (store 'append) icon1)
+		   (gir:invoke (store 'append) icon2)
+		   calls))))
 
 (in-suite gir)
 
