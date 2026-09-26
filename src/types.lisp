@@ -47,17 +47,6 @@
   :type
   :unresolved)
 
-;; Referencing [this C source for][1] for the union members
-;;
-;; * We are only interested in unsigned types
-;; * We need to determine which of these matches the size of GType
-;;
-;; Can there be multiple matches within this candidates list? I
-;; believe that there *can* be and that if they all share sign and
-;; bit-length, though, I think they are compatible members of the
-;; union. TODO: Is this undefined behavior?
-;;
-;; [1]: https://gitlab.gnome.org/GNOME/gobject-introspection/-/blob/0cd7f4f39714f3c01d666d165ae1f92cb5c78811/girepository/gitypes.h#L189
 (defun inspect-gi-argument-union ()
   "Return a plist member types and names from the CFFI GIArgument union
 
@@ -82,7 +71,13 @@ Makes the following assumptions
 
 1. CFFI::CANONICALIZE-FOREIGN-TYPE is stable enough for use
 2. The canonicalized type will start with unsigned when it is
-   unsigned. I believe that this is guaranteed as part of C"
+   unsigned. I believe that this is guaranteed as part of C
+3. We are only interested in unsigned types
+4. There may be multiple matches in the candidate list and that that
+   is *alright* because if they share signedness and size then they
+   are compatible
+
+   * TODO: Verify the safety and definedness of this asserted behavior"
   (loop for (type member) on members by #'cddr
         for canonicalized-type = (cffi::canonicalize-foreign-type type)
         for first-type-component = (let ((name (symbol-name canonicalized-type)))
