@@ -184,7 +184,21 @@ A few assumptions have been made:
             for possible-member = (multiple-value-list (possibly-read-member line))
             when possible-member nconc it))))
 
-(defun determine-gtype-argument-union-member-candidates ()
+(defun inspect-gi-argument-union ()
+  (let ((members
+          (the hash-table
+               (slot-value (cffi::parse-type '(:union argument))
+                           'cffi::slots))))
+    (loop for member being the hash-value of members
+          nconc (with-slots (cffi::type cffi::name)
+                    member
+                  (list cffi::type cffi::name)))))
+
+(defun argument-union-members ()
+  #+nil(read-gi-argument-union)
+  (inspect-gi-argument-union))
+
+(defun filter-gtype-argument-union-member-candidates (members)
   "Determine union members which might be a match for GType
 
 Makes the following assumptions
@@ -192,7 +206,7 @@ Makes the following assumptions
 1. CFFI::CANONICALIZE-FOREIGN-TYPE is stable enough for use
 2. The canonicalized type will start with unsigned when it is
    unsigned. I believe that this is guaranteed as part of C"
-  (loop for (type member) on (read-gi-argument-union) by #'cddr
+  (loop for (type member) on members by #'cddr
         for canonicalized-type = (cffi::canonicalize-foreign-type type)
         for first-type-component = (let ((name (symbol-name canonicalized-type)))
                                      (subseq name 0 (position #\- name)))
@@ -240,7 +254,8 @@ The determination of `GType` replicates the C preprocessor logic from
 
   (defun determine-gtype-argument-union-member ()
     (let* ((gtype (determine-gtype))
-           (members (determine-gtype-argument-union-member-candidates))
+           (members (filter-gtype-argument-union-member-candidates
+                     (argument-union-members)))
            (member
              (multiple-value-list
               (loop for (type name) on members by #'cddr
