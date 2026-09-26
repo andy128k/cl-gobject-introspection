@@ -2,6 +2,7 @@
 
 (defvar *glib*)
 (defvar *gio*)
+(defvar *gobj*)
 (defvar *gtk*)
 
 (def-suite gir :description "The GIR testing suite")
@@ -16,6 +17,9 @@
       (is (eql 'gir::namespace
 	       (progn (setf *gio* (require-namespace "Gio"))
 		      (type-of *gio*))))
+      (is (eql 'gir::namespace
+	       (progn (setf *gobj* (require-namespace "GObject"))
+		      (type-of *gobj*))))
       (is (eql 'gir::namespace
 	       (progn (setf *gtk* (require-namespace "Gtk" "3.0"))
 		      (type-of *gtk*)))))
@@ -193,6 +197,37 @@
 				      (nget *glib* "RegexMatchFlags" :newline_lf))))
 		   (invoke (regex 'split) "a_b_c"
 			   (nget *glib* "RegexMatchFlags" :newline_lf))))))
+
+(test gtype
+  "Show GType's canonical type and corresponding GIArgument union
+member name
+
+NOTE: How does one typically print the output of successful tests?
+Does FiveAM allow for such things? What is the best way to indicate
+this information even though we do not *really* have a handle on the
+expected values?"
+  (format t "~%~%GType information:~%~%")
+  (format t "~{~<~4T~A: ~A~%~>~}"
+          (list
+           "Type" gir::+gtype+
+           "Canonical type" (cffi::canonicalize-foreign-type gir::+gtype+)
+           "GIArgument union member" gir::+gi-argument-gtype-member-name+))
+  (pass))
+
+(test (gi-function-with-gtype :depends-on namespace)
+  "Call Gio.ListStore.New with Gtk.Arrow as the type repeatedly"
+  (is (not (null
+            (let* ((arrow (gir:invoke
+                           (*gtk* "Arrow" 'new)
+                           0 0))
+                   (arrow-type
+                     (gir:invoke
+                      (*gobj* "type_from_name")
+                      "GtkArrow")))
+              (loop for count below 1000
+                    collect (gir:invoke
+                             (*gio* "ListStore" 'new)
+                             arrow-type)))))))
 
 (defun main ()
   (run! 'gir))
