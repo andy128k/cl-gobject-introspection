@@ -161,7 +161,7 @@ A few assumptions have been made:
 		    (values type member))))
 	     (3
 	      (if (not (eq (nth 1 fields) '*))
-		  (error "Unexpected case"))
+		  (error "Union member has three space-delimited fields, but it is not clearly a pointer"))
 	      (loop for symbol in fields
 		    do (unintern symbol))
 	      (values)))))
