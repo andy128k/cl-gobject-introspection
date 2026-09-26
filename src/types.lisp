@@ -184,7 +184,7 @@ A few assumptions have been made:
 	    for possible-member = (multiple-value-list (possibly-read-member line))
 	    when possible-member nconc it))))
 
-(defun filtered-union-members ()
+(defun determine-gtype-argument-union-member-candidates ()
   "Determine union members which might be a match for GType
 
 Makes the following assumptions
@@ -240,7 +240,7 @@ The determination of `GType` replicates the C preprocessor logic from
 
   (defun determine-gtype-argument-union-member ()
     (let* ((gtype (determine-gtype))
-	   (members (filtered-union-members))
+	   (members (determine-gtype-argument-union-member-candidates))
 	   (member
 	     (multiple-value-list
 	      (loop for (type name) on members by #'cddr
