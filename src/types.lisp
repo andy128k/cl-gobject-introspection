@@ -152,6 +152,15 @@ union _GIArgument
 ")
 
 (defun read-union (&aux in-union)
+  "Read members of the _GIArgument union into a list
+
+Make sure to unintern symbols to avoid polluting the `gir` package
+
+A few assumptions have been made:
+
+1. Pointer members are both identifiable and easily ignorable
+2. CFFI recognizes a type identified by removing the `g` prefix from
+   the member type specifier then interning as a keyword"
   (labels
       ((translate-type (input-type-symbol)
 	 (intern (subseq (symbol-name input-type-symbol) 1)
