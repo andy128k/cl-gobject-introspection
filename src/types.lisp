@@ -148,9 +148,8 @@ The determination of `GType` replicates the C preprocessor logic from
             (multiple-value-list
              (determine-gi-argument-union-member-for-gtype)))))
 
-(macrolet
-    ((defgtype ()
-       `(cffi:defctype gtype ,(determine-gtype))))
+(macrolet ((defgtype ()
+             `(cffi:defctype gtype ,+gtype+)))
   (defgtype))
 
 (defun gtype (obj) 
