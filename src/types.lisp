@@ -206,16 +206,6 @@ A few assumptions have been made:
 	    for possible-member = (multiple-value-list (possibly-read-member line))
 	    when possible-member collect it))))
 
-(defvar *union-member-candidates*
-  '(guint v-uint
-    guint8 v-uint8
-    guint16 v-uint16
-    guint32 v-uint32
-    guint64 v-uint64
-    gulong v-ulong
-    gushort v-ushort
-    gsize v-size))
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun determine-gtype-type-and-union-member ()
     (let ((uintptr
