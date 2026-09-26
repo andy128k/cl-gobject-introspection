@@ -142,7 +142,10 @@ The determination of `GType` replicates the C preprocessor logic from
                gtype (cffi::canonicalize-foreign-type gtype)))
       (values-list member))))
 
-(cffi:defctype gtype :ulong)
+(macrolet
+    ((defgtype ()
+       `(cffi:defctype gtype ,(determine-gtype))))
+  (defgtype))
 
 (defun gtype (obj) 
   (cffi:mem-ref (cffi:mem-ref obj :pointer) 'gtype))
