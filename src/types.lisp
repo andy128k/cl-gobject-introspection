@@ -141,48 +141,48 @@ A few assumptions have been made:
    the member type specifier then interning as a keyword"
   (labels
       ((translate-type (input-type-symbol)
-	 (intern (subseq (symbol-name input-type-symbol) 1)
-		 "KEYWORD"))
+         (intern (subseq (symbol-name input-type-symbol) 1)
+                 "KEYWORD"))
        (translate-member (input-member-symbol)
-	 (intern (format
-		  nil "V-~A"
-		  (subseq (symbol-name input-member-symbol) 2))))
+         (intern (format
+                  nil "V-~A"
+                  (subseq (symbol-name input-member-symbol) 2))))
        (definitely-read-member (line)
-	 (let ((fields
-		 (with-input-from-string (stream line)
-		   (loop for field = (read stream nil)
-			 while field
-			 collect field))))
-	   (case (length fields)
-	     (2 (destructuring-bind (in-type in-member)
-		    fields
-		  (let ((type (translate-type in-type))
-			(member (translate-member in-member)))
-		    (unintern in-type)
-		    (unintern in-member)
-		    (values type member))))
-	     (3
-	      (if (not (eq (nth 1 fields) '*))
-		  (error "Union member has three space-delimited fields, but it is not clearly a pointer"))
-	      (loop for symbol in fields
-		    do (unintern symbol))
-	      (values)))))
+         (let ((fields
+                 (with-input-from-string (stream line)
+                   (loop for field = (read stream nil)
+                         while field
+                         collect field))))
+           (case (length fields)
+             (2 (destructuring-bind (in-type in-member)
+                    fields
+                  (let ((type (translate-type in-type))
+                        (member (translate-member in-member)))
+                    (unintern in-type)
+                    (unintern in-member)
+                    (values type member))))
+             (3
+              (if (not (eq (nth 1 fields) '*))
+                  (error "Union member has three space-delimited fields, but it is not clearly a pointer"))
+              (loop for symbol in fields
+                    do (unintern symbol))
+              (values)))))
        (possibly-read-member (line)
-	 (cond
-	   ((not in-union)
-	    (when (eq (aref line 0) #\{)
-	      (setf in-union t))
-	    (values))
-	   (in-union
-	    (cond
-	      ((eq (aref line 0) #\})
-	       (values))
-	      (t (definitely-read-member line)))))))
+         (cond
+           ((not in-union)
+            (when (eq (aref line 0) #\{)
+              (setf in-union t))
+            (values))
+           (in-union
+            (cond
+              ((eq (aref line 0) #\})
+               (values))
+              (t (definitely-read-member line)))))))
     (with-input-from-string (stream *c-union-definition*)
       (loop for line = (read-line stream nil)
-	    while line
-	    for possible-member = (multiple-value-list (possibly-read-member line))
-	    when possible-member nconc it))))
+            while line
+            for possible-member = (multiple-value-list (possibly-read-member line))
+            when possible-member nconc it))))
 
 (defun determine-gtype-argument-union-member-candidates ()
   "Determine union members which might be a match for GType
@@ -193,11 +193,11 @@ Makes the following assumptions
 2. The canonicalized type will start with unsigned when it is
    unsigned. I believe that this is guaranteed as part of C"
   (loop for (type member) on (read-gi-argument-union) by #'cddr
-	for canonicalized-type = (cffi::canonicalize-foreign-type type)
-	for first-type-component = (let ((name (symbol-name canonicalized-type)))
-				     (subseq name 0 (position #\- name)))
-	when (string= first-type-component "UNSIGNED")
-	  nconc (list type member)))
+        for canonicalized-type = (cffi::canonicalize-foreign-type type)
+        for first-type-component = (let ((name (symbol-name canonicalized-type)))
+                                     (subseq name 0 (position #\- name)))
+        when (string= first-type-component "UNSIGNED")
+          nconc (list type member)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun determine-gtype ()
@@ -218,39 +218,39 @@ The determination of `GType` replicates the C preprocessor logic from
 [1]: https://www.open-std.org/jtc1/sc22/wg14/www/projects.html
 [2]: https://gitlab.gnome.org/GNOME/glib/-/blob/36c60f069c6f3776dafc7f6ce18c8c0b606cd8b5/gobject/gtype.h#L418"
     (let ((uintptr
-	    (find-if
-	     #'(lambda (type) (eq
-			       (cffi:foreign-type-size type)
-			       (cffi:foreign-type-size :pointer)))
-	     (list :unsigned-int
-		   :unsigned-long
-		   #-cffi-sys::no-long-long
-		   :unsigned-long-long))))
+            (find-if
+             #'(lambda (type) (eq
+                               (cffi:foreign-type-size type)
+                               (cffi:foreign-type-size :pointer)))
+             (list :unsigned-int
+                   :unsigned-long
+                   #-cffi-sys::no-long-long
+                   :unsigned-long-long))))
       (cond
-	((>
-	  (cffi:foreign-type-size :pointer)
-	  (cffi:foreign-type-size :size))
-	 uintptr)
-	((not
-	  (eq
-	   (cffi:foreign-type-size :size)
-	   (cffi:foreign-type-size :long)))
-	 :size)
-	(t :unsigned-long))))
+        ((>
+          (cffi:foreign-type-size :pointer)
+          (cffi:foreign-type-size :size))
+         uintptr)
+        ((not
+          (eq
+           (cffi:foreign-type-size :size)
+           (cffi:foreign-type-size :long)))
+         :size)
+        (t :unsigned-long))))
 
   (defun determine-gtype-argument-union-member ()
     (let* ((gtype (determine-gtype))
-	   (members (determine-gtype-argument-union-member-candidates))
-	   (member
-	     (multiple-value-list
-	      (loop for (type name) on members by #'cddr
-		    when (eq
-			  (cffi::canonicalize-foreign-type (determine-gtype))
-			  (cffi::canonicalize-foreign-type type))
-		      return (values type name)))))
+           (members (determine-gtype-argument-union-member-candidates))
+           (member
+             (multiple-value-list
+              (loop for (type name) on members by #'cddr
+                    when (eq
+                          (cffi::canonicalize-foreign-type (determine-gtype))
+                          (cffi::canonicalize-foreign-type type))
+                      return (values type name)))))
       (unless member
-	(error "Could not determine GObject Introspection argument union member from GType (~A) (~A)"
-	       gtype (cffi::canonicalize-foreign-type gtype)))
+        (error "Could not determine GObject Introspection argument union member from GType (~A) (~A)"
+               gtype (cffi::canonicalize-foreign-type gtype)))
       (values-list member))))
 
 (cffi:defctype gtype :ulong)
