@@ -49,25 +49,26 @@
   :type
   :unresolved)
 
-(defun inspect-gi-argument-union ()
-  "Return a plist member types and names from the CFFI GIArgument union
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun inspect-gi-argument-union ()
+    "Return a plist member types and names from the CFFI GIArgument union
 
 NOTE: How confident are we that these internal functions and symbols
 are fit for use?"
-  (let ((members
-          (the hash-table
-               (slot-value (cffi::parse-type '(:union argument))
-                           'cffi::slots))))
-    (loop for member being the hash-value of members
-          nconc (with-slots (cffi::type cffi::name)
-                    member
-                  (list cffi::type cffi::name)))))
+    (let ((members
+            (the hash-table
+		 (slot-value (cffi::parse-type '(:union argument))
+                             'cffi::slots))))
+      (loop for member being the hash-value of members
+            nconc (with-slots (cffi::type cffi::name)
+                      member
+                    (list cffi::type cffi::name)))))
 
-(defun gi-argument-union-members ()
-  (inspect-gi-argument-union))
+  (defun gi-argument-union-members ()
+    (inspect-gi-argument-union))
 
-(defun filter-gi-argument-union-members-for-gtype-candidates (members)
-  "Determine union members which might be a match for GType
+  (defun filter-gi-argument-union-members-for-gtype-candidates (members)
+    "Determine union members which might be a match for GType
 
 Makes the following assumptions
 
@@ -80,14 +81,13 @@ Makes the following assumptions
    are compatible
 
    * TODO: Verify the safety and definedness of this asserted behavior"
-  (loop for (type member) on members by #'cddr
-        for canonicalized-type = (cffi::canonicalize-foreign-type type)
-        for first-type-component = (let ((name (symbol-name canonicalized-type)))
-                                     (subseq name 0 (position #\- name)))
-        when (string= first-type-component "UNSIGNED")
-          nconc (list type member)))
+    (loop for (type member) on members by #'cddr
+          for canonicalized-type = (cffi::canonicalize-foreign-type type)
+          for first-type-component = (let ((name (symbol-name canonicalized-type)))
+                                       (subseq name 0 (position #\- name)))
+          when (string= first-type-component "UNSIGNED")
+            nconc (list type member)))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
   (defun determine-gtype ()
     "Determine the CFFI type for GType
 
