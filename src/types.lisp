@@ -236,7 +236,22 @@ The determination of `GType` replicates the C preprocessor logic from
 	   (cffi:foreign-type-size :size)
 	   (cffi:foreign-type-size :long)))
 	 :size)
-	(t :unsigned-long)))))
+	(t :unsigned-long))))
+
+  (defun determine-gtype-argument-union-member ()
+    (let* ((gtype (determine-gtype))
+	   (members (filtered-union-members))
+	   (member
+	     (multiple-value-list
+	      (loop for (type name) on members by #'cddr
+		    when (eq
+			  (cffi::canonicalize-foreign-type (determine-gtype))
+			  (cffi::canonicalize-foreign-type type))
+		      return (values type name)))))
+      (unless member
+	(error "Could not determine GObject Introspection argument union member from GType (~A) (~A)"
+	       gtype (cffi::canonicalize-foreign-type gtype)))
+      (values-list member))))
 
 (cffi:defctype gtype :ulong)
 
