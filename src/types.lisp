@@ -99,6 +99,10 @@
 ;;
 ;; [1]: https://gitlab.gnome.org/GNOME/gobject-introspection/-/blob/0cd7f4f39714f3c01d666d165ae1f92cb5c78811/girepository/gitypes.h#L189
 (defun inspect-gi-argument-union ()
+  "Return a plist member types and names from the CFFI GIArgument union
+
+NOTE: How confident are we that these internal functions and symbols
+are fit for use?"
   (let ((members
           (the hash-table
                (slot-value (cffi::parse-type '(:union argument))
