@@ -112,10 +112,10 @@ are fit for use?"
                     member
                   (list cffi::type cffi::name)))))
 
-(defun argument-union-members ()
+(defun gi-argument-union-members ()
   (inspect-gi-argument-union))
 
-(defun filter-gtype-argument-union-member-candidates (members)
+(defun filter-gi-argument-union-members-for-gtype-candidates (members)
   "Determine union members which might be a match for GType
 
 Makes the following assumptions
@@ -169,10 +169,10 @@ The determination of `GType` replicates the C preprocessor logic from
          :size)
         (t :unsigned-long))))
 
-  (defun determine-gtype-argument-union-member ()
+  (defun determine-gi-argument-union-member-for-gtype ()
     (let* ((gtype (determine-gtype))
-           (members (filter-gtype-argument-union-member-candidates
-                     (argument-union-members)))
+           (members (filter-gi-argument-union-members-for-gtype-candidates
+                     (gi-argument-union-members)))
            (member
              (multiple-value-list
               (loop for (type name) on members by #'cddr
