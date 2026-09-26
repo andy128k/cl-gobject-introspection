@@ -203,10 +203,20 @@ Makes the following assumptions
   (defun determine-gtype-type-and-union-member ()
     "Determine the CFFI type for GType
 
-This replicates the C preprocessor logic from [this portion of
-glib/gobject/gtype.h][1]
+The determination of `uintptr` is based on the description in the C99
+N1256 working draft from [here][1]. See `7.18.1.4 Integer types
+capable of holding object pointers`
 
-[1]: https://gitlab.gnome.org/GNOME/glib/-/blob/36c60f069c6f3776dafc7f6ce18c8c0b606cd8b5/gobject/gtype.h#L418"
+> The following type designates an unsigned integer type with the
+> property that anyvalid pointer to void can be converted to this
+> type, then converted back to pointer to void, and the result will
+> compare equal to the original pointer:
+
+The determination of `GType` replicates the C preprocessor logic from
+[this portion of glib/gobject/gtype.h][2]
+
+[1]: https://www.open-std.org/jtc1/sc22/wg14/www/projects.html
+[2]: https://gitlab.gnome.org/GNOME/glib/-/blob/36c60f069c6f3776dafc7f6ce18c8c0b606cd8b5/gobject/gtype.h#L418"
     (let ((uintptr
 	    (find-if
 	     #'(lambda (type) (eq
