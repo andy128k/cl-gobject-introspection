@@ -87,6 +87,28 @@
   :type
   :unresolved)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun determine-gtype-type-and-union-member ()
+    (let ((uintptr
+	    (find-if
+	     #'(lambda (type) (eq
+			       (cffi:foreign-type-size type)
+			       (cffi:foreign-type-size :pointer)))
+	     (list :unsigned-int
+		   :unsigned-long
+		   #-cffi-sys::no-long-long
+		   :unsigned-long-long))))
+      (cond
+	((>
+	  (cffi:foreign-type-size :pointer)
+	  (cffi:foreign-type-size :size))
+	 uintptr)
+	((neq
+	  (cffi:foreign-type-size :size)
+	  (cffi:foreign-type-size :long))
+	 :size)
+	(t (values :usigned-long-long 'v-uint64))))))
+
 (cffi:defctype gtype :ulong)
 
 (defun gtype (obj) 
