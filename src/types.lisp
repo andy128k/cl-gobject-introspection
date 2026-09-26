@@ -128,7 +128,7 @@ union _GIArgument
 ")
 
 (defun read-union (&aux in-union)
-  "Read members of the _GIArgument union into a list
+  "Read members of the _GIArgument union into a plist
 
 Make sure to unintern symbols to avoid polluting the `gir` package
 
@@ -180,7 +180,7 @@ A few assumptions have been made:
       (loop for line = (read-line stream nil)
 	    while line
 	    for possible-member = (multiple-value-list (possibly-read-member line))
-	    when possible-member collect it))))
+	    when possible-member nconc it))))
 
 (defun filtered-union-members ()
   "Determine union members which might be a match for GType
