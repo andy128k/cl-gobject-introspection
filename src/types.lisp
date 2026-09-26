@@ -200,7 +200,7 @@ Makes the following assumptions
 	  nconc (list type member)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun determine-gtype-type-and-union-member ()
+  (defun determine-gtype ()
     "Determine the CFFI type for GType
 
 The determination of `uintptr` is based on the description in the C99
