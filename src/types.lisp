@@ -111,22 +111,28 @@
 ;; - glong v_long;
 ;; - gssize v_ssize;
 ;;
-;; These are the candidates:
-;; - gsize v_size;
-;; - guint v_uint;
-;; - guint16 v_uint16;
-;; - guint32 v_uint32;
-;; - guint64 v_uint64;
-;; - guint8 v_uint8;
-;; - gulong v_ulong;
-;; - gushort v_ushort;
+;; The remaining union members are the candidates and shown below
 ;;
 ;; Can there be multiple matches within this candidates list? I think
 ;; so... If they all share sign and bit-length, though, I think they
 ;; are compatible members of the union... Undefined behavior? Unsure,
 ;; but I think it's safe enough
 ;;
+;; I will make the assumption that these types translate
+;; straightforwardly to the suggested C types and manually translate
+;; them accordingly
+;;
 ;; [1]: https://gnome.pages.gitlab.gnome.org/gobject-introspection/girepository/gi-Common-Types.html#GIArgument
+
+(defvar *union-member-candidates*
+  '(guint v-uint
+    guint8 v-uint8
+    guint16 v-uint16
+    guint32 v-uint32
+    guint64 v-uint64
+    gulong v-ulong
+    gushort v-ushort
+    gsize v-size))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun determine-gtype-type-and-union-member ()
