@@ -231,9 +231,10 @@ The determination of `GType` replicates the C preprocessor logic from
 	  (cffi:foreign-type-size :pointer)
 	  (cffi:foreign-type-size :size))
 	 uintptr)
-	((neq
-	  (cffi:foreign-type-size :size)
-	  (cffi:foreign-type-size :long))
+	((not
+	  (eq
+	   (cffi:foreign-type-size :size)
+	   (cffi:foreign-type-size :long)))
 	 :size)
 	(t :unsigned-long)))))
 
