@@ -235,7 +235,7 @@ The determination of `GType` replicates the C preprocessor logic from
 	  (cffi:foreign-type-size :size)
 	  (cffi:foreign-type-size :long))
 	 :size)
-	(t (values :usigned-long-long 'v-uint64))))))
+	(t :unsigned-long)))))
 
 (cffi:defctype gtype :ulong)
 
