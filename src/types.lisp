@@ -24,17 +24,6 @@
   (v-string :pointer) ;; if :string, it frees pointer after setting it
   (v-pointer :pointer))
 
-    #|
-    (:array (values (cffi:foreign-slot-value argument 'argument 'v-pointer)
-		    length))
-    (:interface (cffi:foreign-slot-value argument 'argument 'v-pointer))
-    (:glist nil)
-    (:gslist nil)
-    (:ghash nil)
-    (:error nil)
-    |#
-;     (error "TODO"))))
-
 (cffi:defcenum info-type
   "Types of objects registered in the repository"
   (:invalid 0)
