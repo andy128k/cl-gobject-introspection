@@ -190,8 +190,8 @@ A few assumptions have been made:
 Makes the following assumptions
 
 1. CFFI::CANONICALIZE-FOREIGN-TYPE is stable enough for use
-2. The canonicalized will start with unsigned when it is unsigned. I
-   believe that this is guaranteed as part of C"
+2. The canonicalized type will start with unsigned when it is
+   unsigned. I believe that this is guaranteed as part of C"
   (loop for (type member) on (read-union) by #'cddr
 	for canonicalized-type = (cffi::canonicalize-foreign-type type)
 	for first-type-component = (let ((name (symbol-name canonicalized-type)))
