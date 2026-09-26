@@ -92,34 +92,10 @@
 ;; * We are only interested in unsigned types
 ;; * We need to determine which of these matches the size of GType
 ;;
-;; These are all the wrong type:
-;;
-;; - gboolean v_boolean;
-;; - gchar *v_string;
-;; - gpointer v_pointer;
-;; - gdouble v_double;
-;; - gfloat v_float;
-;;
-;; These are all signed:
-;; - gint8 v_int8;
-;; - gint16 v_int16;
-;; - gint32 v_int32;
-;; - gint64 v_int64;
-;; - gshort v_short;
-;; - gint v_int;
-;; - glong v_long;
-;; - gssize v_ssize;
-;;
-;; The remaining union members are the candidates and shown below
-;;
-;; Can there be multiple matches within this candidates list? I think
-;; so... If they all share sign and bit-length, though, I think they
-;; are compatible members of the union... Undefined behavior? Unsure,
-;; but I think it's safe enough
-;;
-;; I will make the assumption that these types translate
-;; straightforwardly to the suggested C types and manually translate
-;; them accordingly
+;; Can there be multiple matches within this candidates list? I
+;; believe that there *can* be and that if they all share sign and
+;; bit-length, though, I think they are compatible members of the
+;; union. TODO: Is this undefined behavior?
 ;;
 ;; [1]: https://gitlab.gnome.org/GNOME/gobject-introspection/-/blob/0cd7f4f39714f3c01d666d165ae1f92cb5c78811/girepository/gitypes.h#L189
 
