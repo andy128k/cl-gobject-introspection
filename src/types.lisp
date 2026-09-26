@@ -129,7 +129,7 @@ union _GIArgument
 };
 ")
 
-(defun read-union (&aux in-union)
+(defun read-gi-argument-union (&aux in-union)
   "Read members of the _GIArgument union into a plist
 
 Make sure to unintern symbols to avoid polluting the `gir` package
@@ -192,7 +192,7 @@ Makes the following assumptions
 1. CFFI::CANONICALIZE-FOREIGN-TYPE is stable enough for use
 2. The canonicalized type will start with unsigned when it is
    unsigned. I believe that this is guaranteed as part of C"
-  (loop for (type member) on (read-union) by #'cddr
+  (loop for (type member) on (read-gi-argument-union) by #'cddr
 	for canonicalized-type = (cffi::canonicalize-foreign-type type)
 	for first-type-component = (let ((name (symbol-name canonicalized-type)))
 				     (subseq name 0 (position #\- name)))
