@@ -87,6 +87,47 @@
   :type
   :unresolved)
 
+;; Referencing [this GObject Introspection API page][1] for the union
+;; members
+;;
+;; * We are only interested in unsigned types
+;; * We need to determine which of these matches the size of GType
+;;
+;; These are all the wrong type:
+;;
+;; - gboolean v_boolean;
+;; - gchar *v_string;
+;; - gpointer v_pointer;
+;; - gdouble v_double;
+;; - gfloat v_float;
+;;
+;; These are all signed:
+;; - gint8 v_int8;
+;; - gint16 v_int16;
+;; - gint32 v_int32;
+;; - gint64 v_int64;
+;; - gshort v_short;
+;; - gint v_int;
+;; - glong v_long;
+;; - gssize v_ssize;
+;;
+;; These are the candidates:
+;; - gsize v_size;
+;; - guint v_uint;
+;; - guint16 v_uint16;
+;; - guint32 v_uint32;
+;; - guint64 v_uint64;
+;; - guint8 v_uint8;
+;; - gulong v_ulong;
+;; - gushort v_ushort;
+;;
+;; Can there be multiple matches within this candidates list? I think
+;; so... If they all share sign and bit-length, though, I think they
+;; are compatible members of the union... Undefined behavior? Unsure,
+;; but I think it's safe enough
+;;
+;; [1]: https://gnome.pages.gitlab.gnome.org/gobject-introspection/girepository/gi-Common-Types.html#GIArgument
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun determine-gtype-type-and-union-member ()
     (let ((uintptr
