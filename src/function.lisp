@@ -608,10 +608,6 @@
       (enum-info (make-enum-type namespace name))
       (t (find-parse-general-type-info :uint)))))
 
-(defvar *gi-argument-gtype-member*
-  (multiple-value-list
-   (determine-gi-argument-union-member-for-gtype)))
-
 (defun parse-general-type-info (tag)
   (multiple-value-bind (cffi-type field)
       (case tag
@@ -635,7 +631,7 @@
 	(:float (values :float 'v-float))
 	(:double (values :double 'v-double))
 	(:time-t (values :long 'v-long))
-	(:gtype (values-list *gi-argument-gtype-member*))
+	(:gtype (values +gtype+ +gi-argument-gtype-member-name+))
 	(:unichar (values :int32 'v-uint32))
 	(t (values :pointer 'v-pointer)))
     (list (make-instance 'builtin-type :cffi-type cffi-type) field)))

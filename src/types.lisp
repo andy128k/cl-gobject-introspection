@@ -49,7 +49,7 @@
   :type
   :unresolved)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
+(eval-when (:compile-toplevel :execute)
   (defun inspect-gi-argument-union ()
     "Return a plist member types and names from the CFFI GIArgument union
 
@@ -141,6 +141,12 @@ The determination of `GType` replicates the C preprocessor logic from
         (error "Could not determine GObject Introspection argument union member from GType (~A) (~A)"
                gtype (cffi::canonicalize-foreign-type gtype)))
       (values-list member))))
+
+(defconstant +gtype+ #.(determine-gtype))
+(defconstant +gi-argument-gtype-member-name+
+  (quote #.(second
+            (multiple-value-list
+             (determine-gi-argument-union-member-for-gtype)))))
 
 (macrolet
     ((defgtype ()
