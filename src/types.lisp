@@ -201,6 +201,12 @@ Makes the following assumptions
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun determine-gtype-type-and-union-member ()
+    "Determine the CFFI type for GType
+
+This replicates the C preprocessor logic from [this portion of
+glib/gobject/gtype.h][1]
+
+[1]: https://gitlab.gnome.org/GNOME/glib/-/blob/36c60f069c6f3776dafc7f6ce18c8c0b606cd8b5/gobject/gtype.h#L418"
     (let ((uintptr
 	    (find-if
 	     #'(lambda (type) (eq
