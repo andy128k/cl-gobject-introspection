@@ -99,6 +99,8 @@
 ;;
 ;; [1]: https://gitlab.gnome.org/GNOME/gobject-introspection/-/blob/0cd7f4f39714f3c01d666d165ae1f92cb5c78811/girepository/gitypes.h#L189
 
+;; TODO: Hmmm... can I instead just loop over the `defcunion` above?
+;; That sure seems easier...
 (defvar *c-union-definition*
   "
 union _GIArgument
