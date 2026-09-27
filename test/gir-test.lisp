@@ -185,18 +185,9 @@
 			 time-val))
 		      'gir::struct-instance)))
 
-(in-suite gir)
+(def-suite cross-platform-gtype :description "Test GType" :in gir)
 
-(test (array :depends-on object-method)
-      "Test the array parameter/return"
-      (is (equal "abc/de/f"
-		 (invoke (*glib* 'build-filenamev) '("abc" "de" "f"))))
-      (is (equal '("a" "b" "c")
-		 (let ((regex (invoke (*glib* "Regex" 'new) "_"
-				      (nget *glib* "RegexCompileFlags" :multiline)
-				      (nget *glib* "RegexMatchFlags" :newline_lf))))
-		   (invoke (regex 'split) "a_b_c"
-			   (nget *glib* "RegexMatchFlags" :newline_lf))))))
+(in-suite cross-platform-gtype)
 
 (test gtype
   "Show GType's canonical type and corresponding GIArgument union
@@ -230,6 +221,18 @@ expected values?"
                              (*gio* "ListStore" 'new)
                              cancellable-type)))))))
 
+(in-suite gir)
+
+(test (array :depends-on object-method)
+      "Test the array parameter/return"
+      (is (equal "abc/de/f"
+		 (invoke (*glib* 'build-filenamev) '("abc" "de" "f"))))
+      (is (equal '("a" "b" "c")
+		 (let ((regex (invoke (*glib* "Regex" 'new) "_"
+				      (nget *glib* "RegexCompileFlags" :multiline)
+				      (nget *glib* "RegexMatchFlags" :newline_lf))))
+		   (invoke (regex 'split) "a_b_c"
+			   (nget *glib* "RegexMatchFlags" :newline_lf))))))
 
 (defun main ()
   (run! 'gir))
