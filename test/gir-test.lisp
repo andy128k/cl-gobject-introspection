@@ -217,14 +217,19 @@ expected values?"
 (test (gi-function-with-gtype :depends-on namespace)
   "Call Gio.ListStore.New with Gio.Cancellable as the type repeatedly"
   (is (not (null
-	    (let* ((cancellable-type
-		     (gir:invoke
-		      (*gobj* "type_from_name")
-		      "GCancellable")))
-	      (loop for count below 10
-		    collect (gir:invoke
-			     (*gio* "ListStore" 'new)
-			     cancellable-type)))))))
+            (let* ((cancellable
+                     (gir:invoke
+                      (*gio* "Cancellable" 'new)))
+                   (cancellable-type
+                     (gir:invoke
+                      (*gobj* "type_from_name")
+                      "GCancellable")))
+              (format t "Creating GCancellables (GType: ~A)~%" cancellable-type)
+              (loop for count below 10
+                    collect (gir:invoke
+                             (*gio* "ListStore" 'new)
+                             cancellable-type)))))))
+
 
 (defun main ()
   (run! 'gir))
