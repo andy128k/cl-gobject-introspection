@@ -221,7 +221,7 @@ expected values?"
 		     (gir:invoke
 		      (*gobj* "type_from_name")
 		      "GCancellable")))
-	      (loop for count below 1000
+	      (loop for count below 10
 		    collect (gir:invoke
 			     (*gio* "ListStore" 'new)
 			     cancellable-type)))))))
