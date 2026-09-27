@@ -215,19 +215,16 @@ expected values?"
   (pass))
 
 (test (gi-function-with-gtype :depends-on namespace)
-  "Call Gio.ListStore.New with Gtk.Arrow as the type repeatedly"
+  "Call Gio.ListStore.New with Gio.Cancellable as the type repeatedly"
   (is (not (null
-            (let* ((arrow (gir:invoke
-                           (*gtk* "Arrow" 'new)
-                           0 0))
-                   (arrow-type
-                     (gir:invoke
-                      (*gobj* "type_from_name")
-                      "GtkArrow")))
-              (loop for count below 1000
-                    collect (gir:invoke
-                             (*gio* "ListStore" 'new)
-                             arrow-type)))))))
+	    (let* ((cancellable-type
+		     (gir:invoke
+		      (*gobj* "type_from_name")
+		      "GCancellable")))
+	      (loop for count below 1000
+		    collect (gir:invoke
+			     (*gio* "ListStore" 'new)
+			     cancellable-type)))))))
 
 (defun main ()
   (run! 'gir))
