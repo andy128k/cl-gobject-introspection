@@ -49,7 +49,7 @@
   :type
   :unresolved)
 
-(eval-when (:compile-toplevel :execute)
+(eval-when (:compile-toplevel)
   (defun inspect-gi-argument-union ()
     "Return a plist member types and names from the CFFI GIArgument union
 
