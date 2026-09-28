@@ -631,7 +631,7 @@
 	(:float (values :float 'v-float))
 	(:double (values :double 'v-double))
 	(:time-t (values :long 'v-long))
-	(:gtype (values :ulong 'v-ulong))
+	(:gtype (values +gtype+ +gi-argument-gtype-member-name+))
 	(:unichar (values :int32 'v-uint32))
 	(t (values :pointer 'v-pointer)))
     (list (make-instance 'builtin-type :cffi-type cffi-type) field)))
